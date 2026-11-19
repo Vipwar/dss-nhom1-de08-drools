@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drools Credit Approval & Loan Pricing DSS | Nhóm 1 – Đề 08</title>
+  <meta name="description" content="Hệ thống Hỗ trợ Ra quyết định Thẩm định Tín dụng, Xếp hạng Rủi ro & Định giá Khoản vay Cá nhân sử dụng kiến trúc Drools Rule Engine (Rete / PHREAK, Forward Chaining, Agenda Conflict Resolution, Truth Maintenance System)." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- ====================================================================
+       TOP HEADER & NAVIGATION BAR
+       ==================================================================== -->
+  <header class="top-navbar">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3.5 pb-0">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pb-3">
+        <div class="flex items-start sm:items-center gap-3.5">
+          <div class="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-300 font-extrabold text-lg shrink-0">
+            D8
+          </div>
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-md bg-sky-500/20 border border-sky-400/30 text-sky-300 text-xs font-bold tracking-wide">
+                ĐỒ ÁN CUỐI KỲ DSS • NHÓM 1 • ĐỀ 08: DROOLS
+              </span>
+              <span id="headerEngineBadge" class="px-2.5 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold font-mono">
+                KieBase: 23 Rules Active
+              </span>
+            </div>
+            <h1 class="text-lg sm:text-xl font-extrabold text-white tracking-tight mt-1">
+              Hệ thống Hỗ trợ Ra quyết định Thẩm định Tín dụng & Định giá Khoản vay (Drools Rule-Based DSS)
+            </h1>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btnToggleAllView" onclick="toggleFullPageMode()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-semibold transition">
+            Chế độ: Xem theo Tab / Toàn trang
+          </button>
+          <button onclick="switchTab('batch')" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition shadow">
+            Chấm điểm 15 Hồ sơ CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center gap-1 overflow-x-auto border-t border-slate-800/80 pt-1" aria-label="Điều hướng phân hệ DSS">
+        <button id="tabBtn-dashboard" class="nav-tab-btn active" onclick="switchTab('dashboard')">
+          <span>1. Thẩm định & Sơ đồ Rete/PHREAK (Khu vực 1–4)</span>
+        </button>
+        <button id="tabBtn-whatif" class="nav-tab-btn" onclick="switchTab('whatif')">
+          <span>2. Phòng Thí nghiệm What-If & Độ nhạy (Khu vực 5)</span>
+        </button>
+        <button id="tabBtn-batch" class="nav-tab-btn" onclick="switchTab('batch')">
+          <span>3. Chấm điểm Hàng loạt 15 Hồ sơ CSV (Khu vực 6B)</span>
+        </button>
+        <button id="tabBtn-studio" class="nav-tab-btn" onclick="switchTab('studio')">
+          <span>4. Live DRL Studio & Bảng Quyết định (Khu vực 6A)</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ====================================================================
+       MAIN CONTAINER
+       ==================================================================== -->
+  <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1">
+
+    <!-- ==================================================================
+         TAB 1: DASHBOARD CHÍNH (KHU VỰC 1, 2, 3, 4)
+         ================================================================== -->
+    <section id="tabPanel-dashboard" class="space-y-6">
+
+      <!-- KHU VỰC 1: THANH KỊCH BẢN DEMO 1-CLICK (6 PRESET SCENARIOS) -->
+      <div class="dss-card p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3.5">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-sky-700">Khu vực 1 • Preset Scenarios</span>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">
+              Thanh Kịch bản Demo 1-Click (6 Kịch bản Điển hình Kiểm chứng Suy diễn Tiến 4 Tầng)
+            </h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <label for="selectSampleApplicant" class="text-xs font-semibold text-slate-600">Hoặc chọn từ 15 hồ sơ CSV:</label>
+            <select id="selectSampleApplicant" onchange="onSelectSampleApplicant(this.value)" class="form-input !w-auto !py-1.5 text-xs font-semibold">
+            </select>
+          </div>
+        </div>
+
+        <div id="presetScenariosContainer" class="scenario-grid">
+          <!-- Render động từ JS -->
+        </div>
+      </div>
+
+      <!-- LƯỚI 2 CỘT: FORM HỒ SƠ (FACT INPUT) & EXECUTIVE DECISION CARD (KHU VỰC 2) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- CỘT TRÁI (4/12): WORKING MEMORY FACT INPUT -->
+        <div class="lg:col-span-4 dss-card flex flex-col justify-between">
+          <div>
+            <div class="dss-card-header">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">KieSession • Working Memory</span>
+                <h3 class="text-base font-bold text-slate-900">Hồ sơ Khách hàng (`Fact: Applicant`)</h3>
+              </div>
+              <span id="formApplicantIdBadge" class="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-mono text-xs font-bold">
+                APP001
+              </span>
+            </div>
+
+            <form id="applicantForm" onsubmit="handleEvaluateForm(event)" class="p-4 space-y-3.5">
+              <div class="grid grid-cols-2 gap-3">
+                <div class="col-span-2">
+                  <label class="block text-xs font-semibold text-slate-700 mb-1" for="inp_full_name">Họ và tên khách hàng</label>
+                  <input id="inp_full_name" type="text" class="form-input font-semibold" value="Nguyễn Minh Quân" required />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1" for="inp_age">Độ tuổi (18–65)</label>
+                  <input id="inp_age" type="number" min="15" max="85" class="form-input font-mono" value="38" required />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1" for="inp_employment_years">Thâm niên (năm)</label>
+                  <input id="inp_employment_years" type="number" step="0.5" min="0" max="45" class="form-input font-mono" value="8.0" required />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1" for="inp_monthly_income">Thu nhập ròng (Tr.đ/tháng)</label>
+                  <input id="inp_monthly_income" type="number" step="0.5" min="1" max="500" class="form-input font-mono" value="65.0" required />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1" for="inp_credit_score">Điểm tín dụng (300–850)</label>
+                  <input id="inp_credit_score" type="number" min="300" max="850" class="form-input font-mono" value="820" required />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1" for="inp_dti_ratio">Tỷ lệ Nợ/Thu nhập DTI (%)</label>
+                  <input id="inp_dti_ratio" type="number" step="0.5" min="0" max="100" class="form-input font-mono" value="22.0" required />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1" for="inp_loan_term_months">Kỳ hạn vay (tháng)</label>
+                  <input id="inp_loan_term_months" type="number" min="6" max="240" class="form-input font-mono" value="60" required />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1" for="inp_loan_amount">Số tiền đề nghị vay (Triệu)</label>
+                  <input id="inp_loan_amount" type="number" step="10" min="10" max="5000" class="form-input font-mono" value="500.0" required />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1" for="inp_collateral_value">Tài sản đảm bảo (Triệu)</label>
+                  <input id="inp_collateral_value" type="number" step="10" min="0" max="10000" class="form-input font-mono" value="750.0" required />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 pt-1">
+                <label class="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer">
+                  <input id="inp_cic_bad_debt" type="checkbox" class="w-4 h-4 text-rose-600 rounded" />
+                  <span class="text-xs font-semibold text-slate-800">Nợ xấu CIC (Nhóm 3–5)</span>
+                </label>
+
+                <label class="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50 cursor-pointer">
+                  <input id="inp_is_vip" type="checkbox" class="w-4 h-4 text-sky-600 rounded" checked />
+                  <span class="text-xs font-semibold text-slate-800">Khách hàng VIP</span>
+                </label>
+              </div>
+
+              <div class="pt-2 flex flex-col gap-2">
+                <button type="submit" id="btnFireRules" class="btn-primary w-full">
+                  <span>Kích hoạt Suy diễn Drools (`session.fireAllRules()`)</span>
+                </button>
+                <button type="button" onclick="syncCurrentToWhatIfAndOpen()" class="btn-secondary w-full">
+                  <span>Đưa hồ sơ này sang Phòng Thí nghiệm What-If</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 rounded-b-xl text-xs text-slate-600">
+            <span class="font-semibold text-slate-800">Chuỗi Pipeline:</span>
+            <span class="font-mono">1-eligibility → 2-risk-scoring → 3-pricing-decision → 4-dss-explanation</span>
+          </div>
+        </div>
+
+        <!-- CỘT PHẢI (8/12): KHU VỰC 2 - BẢNG KẾT QUẢ HỖ TRỢ RA QUYẾT ĐỊNH (EXECUTIVE DECISION CARD & GAUGES) -->
+        <div class="lg:col-span-8 dss-card p-5 space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-3">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-sky-700">Khu vực 2 • Executive Decision Card & Gauges</span>
+              <h3 class="text-base sm:text-lg font-bold text-slate-900">
+                Kết quả Hỗ trợ Ra quyết định, Định giá Khoản vay & Đánh giá Đa chiều
+              </h3>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="execCyclesBadge" class="px-2.5 py-1 rounded-md bg-slate-100 text-slate-800 font-mono text-xs font-bold">
+                8 Chu kỳ Suy diễn
+              </span>
+              <span id="execTierBadge" class="badge-pill tier-TIER_A">
+                TIER_A
+              </span>
+            </div>
+          </div>
+
+          <!-- Decision Banner -->
+          <div id="decisionBannerBox" class="decision-banner decision-APPROVED">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div>
+                <div class="text-xs font-bold uppercase tracking-wider opacity-80">Quyết định Khuyến nghị từ Drools Rule Engine</div>
+                <div id="execDecisionTitle" class="text-xl sm:text-2xl font-extrabold tracking-tight mt-0.5">
+                  PHÊ DUYỆT TỰ ĐỘNG (APPROVED)
+                </div>
+                <div id="execApplicantSummaryLine" class="text-xs font-medium opacity-90 mt-1">
+                  Hồ sơ: Nguyễn Minh Quân (38 tuổi) • Hạng rủi ro: Hạng A – Rủi ro rất thấp
+                </div>
+              </div>
+              <div class="flex items-center gap-3 shrink-0">
+                <div class="text-right">
+                  <div class="text-xs font-bold uppercase opacity-75">Điểm suy diễn tổng hợp</div>
+                  <div id="execCompositeScore" class="text-3xl font-extrabold font-mono">100/100</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6 Gauges / Financial Metrics Cards -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div class="text-xs font-semibold text-slate-500">Hạn mức Phê duyệt</div>
+              <div id="metricApprovedAmount" class="text-lg sm:text-xl font-extrabold text-slate-900 font-mono mt-0.5">
+                500.0 triệu
+              </div>
+              <div id="metricApprovalRatio" class="text-xs font-semibold text-emerald-700 mt-0.5">
+                Đạt 100.0% yêu cầu
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div class="text-xs font-semibold text-slate-500">Lãi suất Đề xuất</div>
+              <div id="metricInterestRate" class="text-lg sm:text-xl font-extrabold text-sky-700 font-mono mt-0.5">
+                6.80% / năm
+              </div>
+              <div id="metricLoanTerm" class="text-xs text-slate-600 mt-0.5">
+                Kỳ hạn: 60 tháng
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div class="text-xs font-semibold text-slate-500">Trả góp Hàng tháng (Ước tính)</div>
+              <div id="metricMonthlyPayment" class="text-lg sm:text-xl font-extrabold text-slate-900 font-mono mt-0.5">
+                9.85 triệu/tháng
+              </div>
+              <div class="text-xs text-slate-600 mt-0.5">
+                Gốc + lãi theo dư nợ giảm dần
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div class="text-xs font-semibold text-slate-500">Tỷ lệ DTI Sau Quyết định</div>
+              <div id="metricPostDti" class="text-base font-extrabold text-slate-900 font-mono mt-0.5">
+                22.0%
+              </div>
+              <div class="text-xs text-slate-600 mt-0.5">
+                Ngưỡng loại trừ trần: 65.0%
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div class="text-xs font-semibold text-slate-500">Tỷ lệ Bao phủ Tài sản (TSĐB)</div>
+              <div id="metricCollateralRatio" class="text-base font-extrabold text-slate-900 font-mono mt-0.5">
+                150.0%
+              </div>
+              <div id="metricSecuredFlag" class="text-xs font-semibold text-emerald-700 mt-0.5">
+                Đạt chuẩn có TSĐB (>=120%)
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70">
+              <div class="text-xs font-semibold text-slate-500">Chuỗi Luật Kích hoạt</div>
+              <div id="metricFiredRulesChain" class="text-xs font-bold text-sky-800 font-mono mt-1 leading-relaxed">
+                R04 → R05 → R06 → R07 → R09 → R13 → R18
+              </div>
+            </div>
+          </div>
+
+          <!-- Radar Chart (5 Chiều) + Lý giải & Khuyến nghị DSS -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-5 pt-1">
+            <div class="md:col-span-5 p-3.5 rounded-xl border border-slate-200 bg-white flex flex-col justify-between">
+              <div class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                Biểu đồ Đánh giá 5 Chiều Hồ sơ Tín dụng
+              </div>
+              <div class="relative w-full h-56 flex items-center justify-center">
+                <canvas id="applicantRadarChart"></canvas>
+              </div>
+              <div id="radarFallbackBars" class="space-y-1.5 mt-2 text-xs"></div>
+            </div>
+
+            <div class="md:col-span-7 space-y-3">
+              <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50">
+                <div class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                  Diễn giải Suy diễn từ các Luật đã Kích hoạt (Rule Explanations)
+                </div>
+                <ul id="execReasonsList" class="space-y-1.5 text-xs text-slate-700 max-h-40 overflow-y-auto pr-1">
+                </ul>
+              </div>
+
+              <div class="p-3.5 rounded-xl border border-sky-200 bg-sky-50/70">
+                <div class="text-xs font-bold uppercase tracking-wider text-sky-900 mb-1.5">
+                  Khuyến nghị Hành động của Hệ Hỗ trợ Ra quyết định (Actionable DSS Recommendations)
+                </div>
+                <ul id="execRecommendationsList" class="space-y-1.5 text-xs text-sky-950">
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================================================================
+           KHU VỰC 3: SƠ ĐỒ MẠNG SUY DIỄN RETE / PHREAK & REPLAY TRỰC QUAN
+           ================================================================== -->
+      <div class="dss-card p-5 space-y-4">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 border-b border-slate-200 pb-3.5">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-sky-700">
+              Khu vực 3 • Interactive Rete / PHREAK Network & Step-by-Step Replay
+            </span>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900">
+              Sơ đồ Mạng Suy diễn Rete / PHREAK (`OTN → AlphaNode → BetaNode → RuleTerminalNode → Agenda`)
+            </h3>
+          </div>
+
+          <!-- Replay Controls -->
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="replayFirstStep()" class="btn-secondary !py-1.5 !px-2.5 text-xs">
+              ⏮ Bước 1
+            </button>
+            <button type="button" onclick="replayPrevStep()" class="btn-secondary !py-1.5 !px-2.5 text-xs">
+              ◀ Lùi
+            </button>
+            <button type="button" id="btnReplayAuto" onclick="toggleReplayAuto()" class="btn-primary !py-1.5 !px-3 text-xs">
+              ▶ Chạy từng bước (Replay)
+            </button>
+            <button type="button" onclick="replayNextStep()" class="btn-secondary !py-1.5 !px-2.5 text-xs">
+              Tiếp ▶
+            </button>
+            <button type="button" onclick="replayResetAll()" class="btn-secondary !py-1.5 !px-2.5 text-xs">
+              ⏭ Xem Toàn bộ
+            </button>
+            <button type="button" onclick="runTmsInteractiveDemo()" class="px-3 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-600 text-white text-xs font-bold transition">
+              Minh họa TMS (`insertLogical`)
+            </button>
+          </div>
+        </div>
+
+        <!-- Luồng Kiến trúc 5 Cấp của Rete / PHREAK + Thống kê Node Sharing -->
+        <div id="reteArchitectureFlowBar" class="pipeline-flow-bar">
+          <!-- Render động từ JS -->
+        </div>
+
+        <!-- Thanh trạng thái Bước Replay hiện tại -->
+        <div id="replayStepBanner" class="p-3.5 rounded-xl bg-slate-900 text-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs">
+          <!-- Render động từ JS -->
+        </div>
+
+        <!-- Sơ đồ 4 Tầng Agenda-Group với các nút Alpha / Beta / RuleTerminalNode phát sáng -->
+        <div id="reteStagesVisualizer" class="rete-stage-grid">
+          <!-- Render động từ JS -->
+        </div>
+
+        <!-- Hộp Minh họa Truth Maintenance System (TMS insertLogical) khi bấm nút -->
+        <div id="tmsDemoResultBox" class="hidden p-4 rounded-xl border-2 border-teal-500 bg-teal-50/80 space-y-2 text-xs">
+        </div>
+      </div>
+
+      <!-- ==================================================================
+           KHU VỰC 4: NHẬT KÝ TRUY VẾT KÍCH HOẠT LUẬT & CONFLICT RESOLUTION LOG
+           ================================================================== -->
+      <div class="dss-card p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-3">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-sky-700">
+              Khu vực 4 • Agenda Event Listener & Conflict Resolution Audit Log
+            </span>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900">
+              Nhật ký Truy vết Chu kỳ Suy diễn Tiến (Forward Chaining Trace) & Giải quyết Xung đột Luật
+            </h3>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold">
+              Thứ tự ưu tiên: Agenda-Group → Salience → Activation-Group → No-Loop / Lock-On-Active
+            </span>
+          </div>
+        </div>
+
+        <!-- Danh sách các luật bị hủy kích hoạt do activation-group + Sự kiện TMS -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="p-3.5 rounded-xl border border-amber-300 bg-amber-50/70">
+            <div class="text-xs font-bold uppercase tracking-wider text-amber-900 mb-2">
+              Bằng chứng Giải quyết Xung đột: Các Luật bị Hủy do `activation-group`
+            </div>
+            <div id="cancelledActivationsBox" class="space-y-1.5 text-xs text-amber-950">
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl border border-teal-300 bg-teal-50/70">
+            <div class="text-xs font-bold uppercase tracking-wider text-teal-900 mb-2">
+              Nhật ký Hệ thống Bảo toàn Chân lý (Truth Maintenance System – `insertLogical`)
+            </div>
+            <div id="tmsEventsBox" class="space-y-1.5 text-xs text-teal-950">
+            </div>
+          </div>
+        </div>
+
+        <!-- Bảng Timeline Truy vết Từng Chu kỳ (Cycle) -->
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="trace-table">
+            <thead>
+              <tr>
+                <th>Cycle</th>
+                <th>Tầng (`agenda-group`)</th>
+                <th>Luật Chiến thắng & Salience</th>
+                <th>Nút Rete (`Alpha / Beta`)</th>
+                <th>Tập Xung đột trên Agenda (`Conflict Set`)</th>
+                <th>Biến đổi Fact trong Working Memory (`modify / insertLogical`)</th>
+              </tr>
+            </thead>
+            <tbody id="traceTableBody">
+              <!-- Render động từ JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================================================================
+         TAB 2: KHU VỰC 5 - PHÒNG THÍ NGHIỆM WHAT-IF & PHÂN TÍCH ĐỘ NHẠY
+         ================================================================== -->
+    <section id="tabPanel-whatif" class="hidden space-y-6">
+      <div class="dss-card p-5 space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-3">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-sky-700">
+              Khu vực 5 • DSS What-If & Sensitivity Simulator
+            </span>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">
+              Phòng Thí nghiệm What-If & Phân tích Độ nhạy Quyết định Tín dụng (Trước vs Sau)
+            </h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="whatIfPresetSelect" onchange="loadPresetIntoWhatIf(this.value)" class="form-input !w-auto !py-1.5 text-xs font-semibold">
+            </select>
+            <button type="button" onclick="runWhatIfSimulation()" class="btn-primary !py-1.5 text-xs">
+              Chạy So sánh What-If
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Sliders điều chỉnh thông số What-If -->
+          <div class="lg:col-span-5 p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold text-slate-900">Thanh trượt Giả lập Thay đổi Hồ sơ (What-If)</h3>
+              <button type="button" onclick="resetWhatIfSliders()" class="text-xs font-semibold text-sky-700 hover:underline">
+                Đặt lại bằng Hồ sơ Gốc
+              </button>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span>Thu nhập ròng hàng tháng:</span>
+                <span id="lbl_wi_income" class="font-mono font-bold text-sky-700">26.0 triệu</span>
+              </div>
+              <input id="wi_monthly_income" type="range" min="5" max="120" step="1" value="26" oninput="onWhatIfSliderChange()" class="w-full accent-sky-600" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span>Số tiền đề nghị vay:</span>
+                <span id="lbl_wi_loan" class="font-mono font-bold text-sky-700">200.0 triệu</span>
+              </div>
+              <input id="wi_loan_amount" type="range" min="50" max="1000" step="10" value="200" oninput="onWhatIfSliderChange()" class="w-full accent-sky-600" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span>Giá trị Tài sản đảm bảo (TSĐB):</span>
+                <span id="lbl_wi_collateral" class="font-mono font-bold text-sky-700">300.0 triệu</span>
+              </div>
+              <input id="wi_collateral_value" type="range" min="0" max="1500" step="10" value="300" oninput="onWhatIfSliderChange()" class="w-full accent-sky-600" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span>Điểm tín dụng nội bộ (Credit Score):</span>
+                <span id="lbl_wi_score" class="font-mono font-bold text-sky-700">775</span>
+              </div>
+              <input id="wi_credit_score" type="range" min="450" max="850" step="5" value="775" oninput="onWhatIfSliderChange()" class="w-full accent-sky-600" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span>Tỷ lệ Nợ / Thu nhập DTI (%):</span>
+                <span id="lbl_wi_dti" class="font-mono font-bold text-sky-700">31.0%</span>
+              </div>
+              <input id="wi_dti_ratio" type="range" min="10" max="85" step="0.5" value="31" oninput="onWhatIfSliderChange()" class="w-full accent-sky-600" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold">
+                <input id="wi_cic_bad_debt" type="checkbox" onchange="onWhatIfSliderChange()" />
+                <span>Nợ xấu CIC</span>
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold">
+                <input id="wi_is_vip" type="checkbox" onchange="onWhatIfSliderChange()" />
+                <span>Khách hàng VIP</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Bảng so sánh song song Baseline vs What-If -->
+          <div class="lg:col-span-7 space-y-4">
+            <div id="whatIfComparisonCards" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Render động từ JS -->
+            </div>
+
+            <div id="whatIfRuleDiffBox" class="p-4 rounded-xl border border-slate-200 bg-slate-50 text-xs space-y-2">
+              <!-- Render động từ JS -->
+            </div>
+
+            <div class="p-4 rounded-xl border border-slate-200 bg-white">
+              <div class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+                Đường cong Phân tích Độ nhạy (Sensitivity Analysis: Biến thiên Điểm & Lãi suất theo Thu nhập / DTI)
+              </div>
+              <div class="h-52 w-full">
+                <canvas id="sensitivityChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================================================================
+         TAB 3: KHU VỰC 6B - CHẤM ĐIỂM DANH MỤC HÀNG LOẠT (BATCH CSV SCORING)
+         ================================================================== -->
+    <section id="tabPanel-batch" class="hidden space-y-6">
+      <div class="dss-card p-5 space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-3">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-sky-700">
+              Khu vực 6B • Batch Portfolio Scoring (`data/sample_applicants.csv`)
+            </span>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">
+              Chấm điểm Danh mục 15 Hồ sơ Tín dụng Hàng loạt qua Drools Rule Engine
+            </h2>
+          </div>
+          <button type="button" onclick="loadBatchEvaluation()" class="btn-primary text-xs">
+            Chạy lại Chấm điểm Toàn bộ 15 Hồ sơ CSV
+          </button>
+        </div>
+
+        <!-- KPIs Thống kê Danh mục -->
+        <div id="batchKpiCards" class="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+          <!-- Render động từ JS -->
+        </div>
+
+        <!-- Biểu đồ Phân bổ Quyết định & Phân hạng Rủi ro -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="p-4 rounded-xl border border-slate-200 bg-white">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+              Thống kê Tỷ lệ Quyết định Phê duyệt (Decision Distribution)
+            </div>
+            <div class="h-56 flex items-center justify-center">
+              <canvas id="batchDecisionChart"></canvas>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl border border-slate-200 bg-white">
+            <div class="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
+              Phân bổ Hạng Rủi ro Tín dụng (`TIER_A` – `TIER_D`)
+            </div>
+            <div class="h-56 flex items-center justify-center">
+              <canvas id="batchTierChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bảng chi tiết 15 hồ sơ -->
+        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <table class="trace-table">
+            <thead>
+              <tr>
+                <th>Mã HS</th>
+                <th>Họ và Tên</th>
+                <th>Tuổi / Thu nhập</th>
+                <th>Credit / DTI</th>
+                <th>Khoản vay / TSĐB</th>
+                <th>Điểm & Hạng</th>
+                <th>Quyết định của Drools</th>
+                <th>Hạn mức & Lãi suất</th>
+                <th>Chuỗi Luật Kích hoạt</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="batchTableBody">
+              <!-- Render động từ JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================================================================
+         TAB 4: KHU VỰC 6A - LIVE DRL STUDIO & DECISION TABLE
+         ================================================================== -->
+    <section id="tabPanel-studio" class="hidden space-y-6">
+      <div class="dss-card p-5 space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-slate-200 pb-3">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-sky-700">
+              Khu vực 6A • Live DRL Studio & Decision Table Loader
+            </span>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">
+              Trình Xem & Chỉnh sửa Trực tiếp Tập Luật `rules/credit_approval.drl` (Tách biệt Luật Nghiệp vụ & Code)
+            </h2>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="resetDefaultDrl()" class="btn-secondary text-xs">
+              Khôi phục Tập luật `.drl` Gốc
+            </button>
+            <button type="button" onclick="compileLiveDrl()" class="btn-primary text-xs">
+              Biên dịch lại KieBase & Chạy thử Ngay
+            </button>
+          </div>
+        </div>
+
+        <div id="drlCompileStatusBanner" class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold">
+          KieBase đang hoạt động ổn định: Đã biên dịch 20 luật từ `rules/credit_approval.drl` + 3 luật từ `rules/decision_table_rules.csv`.
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div class="lg:col-span-8 space-y-2">
+            <label for="drlSourceEditor" class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              Mã nguồn Drools Rule Language (`rules/credit_approval.drl`)
+            </label>
+            <textarea id="drlSourceEditor" class="drl-editor" spellcheck="false"></textarea>
+          </div>
+
+          <div class="lg:col-span-4 space-y-4">
+            <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
+              <div class="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Bảng Quyết định (`rules/decision_table_rules.csv`)
+              </div>
+              <p class="text-xs text-slate-600">
+                Minh họa tính năng nạp luật bổ sung từ bảng quyết định CSV vào cùng `KieBase`:
+              </p>
+              <div id="decisionTablePreviewBox" class="space-y-2 text-xs">
+              </div>
+            </div>
+
+            <div class="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+              <div class="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Danh mục 20+ Luật trong Production Memory (`KieBase`)
+              </div>
+              <div id="rulesCatalogList" class="space-y-1.5 max-h-80 overflow-y-auto text-xs pr-1">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-slate-900 text-slate-400 text-xs py-4 border-t border-slate-800 mt-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div>
+        <strong class="text-white">Đồ án Cuối kỳ Môn Hệ thống Hỗ trợ Ra quyết định (DSS)</strong> • Nhóm 1 • Đề 08: DROOLS (Nhóm Rule-Based)
+      </div>
+      <div class="font-mono text-slate-400">
+        Apache KIE / Drools DRL Architecture • Rete / PHREAK • Forward Chaining • Truth Maintenance System
+      </div>
+    </div>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

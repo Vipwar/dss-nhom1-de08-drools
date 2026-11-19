@@ -1,0 +1,16 @@
+applicant_id,full_name,age,monthly_income,employment_years,credit_score,dti_ratio,loan_amount,loan_term_months,collateral_value,cic_bad_debt,is_vip,scenario_tag,notes
+APP001,Nguyễn Minh Quân,38,65.0,8.0,820,22.0,500.0,60,750.0,false,true,SCEN_01_VIP_A,Kịch bản 1: Khách hàng VIP Hạng A - Duyệt tự động 100% lãi suất ưu đãi 6.8% + Khoản vay lớn >=500tr
+APP002,Trần Thu Hà,33,34.0,4.0,715,32.0,300.0,48,420.0,false,false,SCEN_02_TIER_B_SECURED,Kịch bản 2: Khách hàng Hạng B có TSĐB (>=120%) - Duyệt 100% lãi suất 9.2%
+APP003,Lê Hoàng Nam,29,26.0,3.0,775,31.0,200.0,36,0.0,false,false,SCEN_03_TIER_B_UNSECURED,Kịch bản 3: Khách hàng Hạng B vay tín chấp - Duyệt có điều kiện 80% hạn mức lãi suất 10.8%
+APP004,Phạm Quốc Bảo,41,32.0,3.5,690,52.0,250.0,48,150.0,false,false,SCEN_04_TIER_C_CONFLICT,Kịch bản 4: Hồ sơ xung đột chỉ số (Thu nhập cao R05 nhưng DTI 52% kích hoạt R08) -> Hạng C Thẩm định thủ công
+APP005,Đặng Văn Hùng,35,40.0,5.0,540,38.0,300.0,48,400.0,true,false,SCEN_05_KO_CIC,Kịch bản 5: Từ chối ngay ở Tầng 1 do có Nợ xấu CIC nhóm 3-5 (Hard Knock-out R02)
+APP006,Vũ Thị Mai,27,14.0,2.0,680,71.5,280.0,36,0.0,false,false,SCEN_06_KO_DTI,Kịch bản 6: Từ chối ngay ở Tầng 1 do tỷ lệ Nợ/Thu nhập DTI > 65% (Hard Knock-out R03)
+APP007,Hoàng Gia Bách,45,48.0,10.0,790,26.0,350.0,48,0.0,false,false,STANDARD_TIER_A,Khách hàng chuẩn Hạng A không VIP (R05 + R06 = 85 điểm) - Duyệt 100% lãi suất 7.5%
+APP008,Ngô Thanh Trúc,31,38.0,5.0,730,29.0,600.0,60,800.0,false,false,LARGE_TIER_B_SECURED,Khách hàng Hạng B có TSĐB vay 600 triệu - Duyệt 100% (R14) kèm kiểm soát định giá độc lập (R18)
+APP009,Bùi Đức Anh,26,31.0,2.5,705,36.0,150.0,24,0.0,false,false,UNSECURED_TIER_B_R05,Khách hàng Hạng B vay tín chấp đạt đúng ngưỡng 60 điểm nhờ R05 - Duyệt có điều kiện 80%
+APP010,Đỗ Khánh Linh,39,22.0,4.0,710,38.0,180.0,36,240.0,false,false,SECURED_TIER_C,Khách hàng Hạng C có TSĐB nhưng thu nhập trung bình (R04 + R07 = 55 điểm) - Chuyển thẩm định
+APP011,Trịnh Minh Tuấn,23,8.5,0.6,610,58.0,120.0,36,0.0,false,false,TIER_D_REJECTED_L3,Khách hàng qua Tầng 1 nhưng bị R08 trừ điểm còn 25 điểm (TIER_D) -> Từ chối ở Tầng 3 (R17)
+APP012,Lý Văn Phúc,68,28.0,15.0,760,25.0,200.0,24,350.0,false,false,KO_AGE_OVER_65,Khách hàng 68 tuổi (> 65 tuổi) -> Từ chối ngay ở Tầng 1 do quá tuổi quy định (Hard Knock-out R01)
+APP013,Phan Thảo Nguyên,34,52.0,6.5,805,19.5,450.0,48,600.0,false,true,VIP_TIER_A_MEDIUM,Khách hàng VIP Hạng A điểm tuyệt đối 100/100 vay 450 triệu - Duyệt tự động lãi suất 6.8%
+APP014,Dương Quốc Khánh,30,19.0,2.0,665,41.0,160.0,36,0.0,false,false,BASELINE_TIER_C,Khách hàng phổ thông đạt 40 điểm nền tảng (TIER_C) - Chuyển Hội đồng Tín dụng thẩm định
+APP015,Hồ Trọng Nghĩa,42,16.0,1.5,510,74.0,320.0,36,0.0,true,false,MULTI_KO_CONFLICT,Hồ sơ vi phạm đồng thời Nợ xấu CIC (R02) và DTI > 65% (R03) -> Minh họa Conflict Resolution Tầng 1

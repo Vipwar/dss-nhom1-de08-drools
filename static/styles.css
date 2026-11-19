@@ -1,0 +1,434 @@
+/* ============================================================================
+   static/styles.css
+   GIAO DIEN FINTECH / BANKING DSS DASHBOARD - NHOM 1 - DE 08: DROOLS ENGINE
+   Thiet ke hien dai, do tuong phan cao, ho tro day du responsive & animation
+   ============================================================================ */
+
+:root {
+  --bg-page: #f4f7fb;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f8fafc;
+  --bg-navy: #0f172a;
+  --bg-navy-light: #1e293b;
+  --border-color: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --brand-primary: #0284c7;
+  --brand-primary-dark: #0369a1;
+  --brand-teal: #0d9488;
+  --status-approved-bg: #ecfdf5;
+  --status-approved-text: #047857;
+  --status-approved-border: #6ee7b7;
+  --status-conditional-bg: #fffbeb;
+  --status-conditional-text: #b45309;
+  --status-conditional-border: #fcd34d;
+  --status-manual-bg: #eff6ff;
+  --status-manual-text: #1d4ed8;
+  --status-manual-border: #93c5fd;
+  --status-rejected-bg: #fef2f2;
+  --status-rejected-text: #b91c1c;
+  --status-rejected-border: #fca5a5;
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 10px 25px rgba(15, 23, 42, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+}
+
+/* Scrollbar tinh te */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Header & Navigation */
+.top-navbar {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  box-shadow: var(--shadow-md);
+}
+
+.nav-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.nav-tab-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-tab-btn.active {
+  color: #38bdf8;
+  border-bottom-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.08);
+}
+
+/* Preset Scenario Cards */
+.scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.75rem;
+}
+
+.scenario-btn {
+  text-align: left;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.scenario-btn:hover {
+  transform: translateY(-2px);
+  border-color: #38bdf8;
+  box-shadow: var(--shadow-md);
+}
+
+.scenario-btn.active {
+  border-color: #0284c7;
+  background: #f0f9ff;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+/* Card & Surface */
+.dss-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 0.875rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.dss-card-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+/* Decision Badges */
+.decision-banner {
+  border-radius: 0.875rem;
+  padding: 1.25rem 1.5rem;
+  border-width: 1.5px;
+  border-style: solid;
+  transition: all 0.25s ease;
+}
+
+.decision-APPROVED {
+  background: var(--status-approved-bg);
+  color: var(--status-approved-text);
+  border-color: var(--status-approved-border);
+}
+
+.decision-CONDITIONAL_APPROVAL {
+  background: var(--status-conditional-bg);
+  color: var(--status-conditional-text);
+  border-color: var(--status-conditional-border);
+}
+
+.decision-MANUAL_REVIEW {
+  background: var(--status-manual-bg);
+  color: var(--status-manual-text);
+  border-color: var(--status-manual-border);
+}
+
+.decision-REJECTED {
+  background: var(--status-rejected-bg);
+  color: var(--status-rejected-text);
+  border-color: var(--status-rejected-border);
+}
+
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.tier-TIER_A {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+.tier-TIER_B {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+.tier-TIER_C {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+.tier-TIER_D {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+/* Rete / PHREAK Network Interactive Visualizer */
+.rete-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(230px, 1fr));
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.rete-stage-column {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 0.875rem;
+  padding: 0.9rem;
+  transition: all 0.25s ease;
+}
+
+.rete-stage-column.stage-active {
+  border-color: #0284c7;
+  background: #f0f9ff;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+}
+
+.rete-node-box {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 0.65rem;
+  padding: 0.65rem 0.8rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.8rem;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.rete-node-box.node-fired {
+  border-color: #10b981;
+  background: #ecfdf5;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+
+.rete-node-box.node-current-step {
+  border-color: #0284c7;
+  background: #e0f2fe;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.3), 0 4px 14px rgba(2, 132, 199, 0.25);
+  transform: scale(1.02);
+  z-index: 5;
+}
+
+.rete-node-box.node-cancelled {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  opacity: 0.92;
+}
+
+.rete-node-box.node-idle {
+  opacity: 0.65;
+}
+
+/* Flow pipeline connector */
+.pipeline-flow-bar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 0.65rem;
+}
+
+.pipeline-node {
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.pipeline-node.active-glow {
+  border-color: #0284c7;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  box-shadow: 0 0 14px rgba(2, 132, 199, 0.22);
+}
+
+/* Form controls */
+.form-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: #0f172a;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.65rem 1.2rem;
+  border-radius: 0.6rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.825rem;
+  padding: 0.55rem 0.95rem;
+  border-radius: 0.55rem;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+/* DRL Code Editor */
+.drl-editor {
+  width: 100%;
+  min-height: 460px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  padding: 1.1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #334155;
+  resize: vertical;
+}
+
+.drl-editor:focus {
+  outline: none;
+  border-color: #38bdf8;
+}
+
+/* Trace Table */
+.trace-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.825rem;
+}
+
+.trace-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1.5px solid #e2e8f0;
+  text-align: left;
+}
+
+.trace-table td {
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.trace-table tr:hover {
+  background: #f8fafc;
+}
+
+.trace-table tr.row-highlight {
+  background: #e0f2fe !important;
+}
+
+@media (max-width: 1024px) {
+  .rete-stage-grid {
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
+  }
+  .pipeline-flow-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .rete-stage-grid {
+    grid-template-columns: 1fr;
+  }
+  .pipeline-flow-bar {
+    grid-template-columns: 1fr;
+  }
+}

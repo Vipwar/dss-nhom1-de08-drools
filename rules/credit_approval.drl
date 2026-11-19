@@ -1,0 +1,408 @@
+package vn.edu.dss.nhom1.credit;
+
+import vn.edu.dss.nhom1.credit.model.Applicant;
+import vn.edu.dss.nhom1.credit.model.EligibilityPassed;
+import vn.edu.dss.nhom1.credit.model.DecisionAudit;
+
+// ============================================================================
+// KHAI BAO MO HINH FACT (DECLARATIVE FACT MODEL - DROOLS DRL)
+// Do an Cuoi ky Mon He thong Ho tro Ra quyet dinh (DSS) - Nhom 1 - De 08: DROOLS
+// ============================================================================
+
+declare Applicant
+    applicant_id : String
+    full_name : String
+    age : int
+    monthly_income : double          // Don vi: Trieu VND / thang
+    employment_years : double        // Tham nien cong tac (nam)
+    credit_score : int               // Diem tin dung noi bo (300 - 850)
+    dti_ratio : double               // Debt-to-Income Ratio (%)
+    loan_amount : double             // So tien đề nghị vay (Trieu VND)
+    loan_term_months : int           // Ky han vay (thang)
+    collateral_value : double        // Gia tri tai san dam bao (Trieu VND)
+    cic_bad_debt : boolean           // No xau CIC nhom 3-5
+    is_vip : boolean                 // Khach hang ưu tien / VIP
+    eligible : boolean               // Ket qua qua vong loai tru Tang 1
+    secured_loan : boolean           // Co tai san dam bao dat chuan (>= 120%)
+    composite_score : int            // Diem tin dung suy dien tong hop (0 - 100)
+    risk_flag_count : int            // So co canh bao rui ro
+    risk_tier : String               // TIER_A, TIER_B, TIER_C, TIER_D, UNRATED
+    decision : String                // PENDING, APPROVED, CONDITIONAL_APPROVAL, MANUAL_REVIEW, REJECTED
+    approved_amount : double         // Han muc phe duyet (Trieu VND)
+    interest_rate : double           // Lai suat de xuat (%/nam)
+    rejection_code : String          // Ma ly do tu choi (neu co)
+    independent_valuation_required : boolean
+    stage_reached : String
+end
+
+declare EligibilityPassed
+    applicant_id : String
+    status : String
+    note : String
+end
+
+// ============================================================================
+// TANG 1: KIEM TRA DIEU KIEN TIEN QUYET & LOAI TRU CUNG (HARD KNOCK-OUT)
+// Agenda Group: "1-eligibility" | Salience: 90..100
+// ============================================================================
+
+rule "R01 - Knock-out: Do tuoi ngoai khung quy dinh (18-65)"
+    salience 100
+    agenda-group "1-eligibility"
+    activation-group "hard-knockout"
+    no-loop true
+    lock-on-active true
+when
+    $app : Applicant( age < 18 || age > 65 )
+then
+    modify($app) {
+        eligible = false,
+        composite_score = 10,
+        risk_tier = "TIER_D",
+        decision = "REJECTED",
+        approved_amount = 0.0,
+        interest_rate = 0.0,
+        rejection_code = "KO_AGE_LIMIT",
+        stage_reached = "1-eligibility"
+    }
+    addReason($app, "R01 [Hard Knock-out]: Độ tuổi khách hàng (" + $app.age + " tuổi) nằm ngoài khung cấp tín dụng quy định (18–65 tuổi).");
+end
+
+rule "R02 - Knock-out: Lich su tin dung CIC co no xau nhom 3-5"
+    salience 98
+    agenda-group "1-eligibility"
+    activation-group "hard-knockout"
+    no-loop true
+    lock-on-active true
+when
+    $app : Applicant( age >= 18 && age <= 65, cic_bad_debt == true )
+then
+    modify($app) {
+        eligible = false,
+        composite_score = 15,
+        risk_tier = "TIER_D",
+        decision = "REJECTED",
+        approved_amount = 0.0,
+        interest_rate = 0.0,
+        rejection_code = "KO_CIC_BAD_DEBT",
+        stage_reached = "1-eligibility"
+    }
+    addReason($app, "R02 [Hard Knock-out]: Khách hàng đang có nợ xấu nhóm 3–5 trên hệ thống CIC, vi phạm điều kiện tiên quyết.");
+end
+
+rule "R03 - Knock-out: Ty le nghia vu tra no tren thu nhap DTI > 65%"
+    salience 95
+    agenda-group "1-eligibility"
+    activation-group "hard-knockout"
+    no-loop true
+    lock-on-active true
+when
+    $app : Applicant( age >= 18 && age <= 65, dti_ratio > 65.0 )
+then
+    modify($app) {
+        eligible = false,
+        composite_score = 20,
+        risk_tier = "TIER_D",
+        decision = "REJECTED",
+        approved_amount = 0.0,
+        interest_rate = 0.0,
+        rejection_code = "KO_EXCESSIVE_DTI",
+        stage_reached = "1-eligibility"
+    }
+    addReason($app, "R03 [Hard Knock-out]: Tỷ lệ nghĩa vụ trả nợ trên thu nhập DTI (" + $app.dti_ratio + "%) vượt trần an toàn tối đa 65%.");
+end
+
+rule "R04 - Vuot qua vong loai tru cung & Mo khoa Tang 2 (TMS insertLogical)"
+    salience 90
+    agenda-group "1-eligibility"
+    no-loop true
+    lock-on-active true
+when
+    $app : Applicant( age >= 18 && age <= 65, cic_bad_debt == false, dti_ratio <= 65.0, decision == "PENDING" )
+then
+    modify($app) {
+        eligible = true,
+        composite_score = 40,
+        stage_reached = "2-risk-scoring"
+    }
+    insertLogical(new EligibilityPassed(applicant_id = $app.applicant_id, status = "PASSED", note = "Hồ sơ vượt qua vòng loại trừ cứng Tầng 1"));
+    addReason($app, "R04 [Eligibility Passed]: Hồ sơ thỏa mãn toàn bộ điều kiện tiên quyết (Tuổi 18–65, CIC sạch, DTI <= 65%). Cấp 40 điểm nền tảng và sinh Fact trung gian EligibilityPassed qua TMS.");
+end
+
+// ============================================================================
+// TANG 2: SUY DIEN DIEM TIN DUNG & PHAN HANG RUI RO (RISK SCORING & TIERING)
+// Agenda Group: "2-risk-scoring" | Salience: 60..80
+// ============================================================================
+
+rule "R05 - Thuong nang luc tai chinh: Thu nhap rong >= 30tr & Tham nien >= 2 nam"
+    salience 80
+    agenda-group "2-risk-scoring"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, monthly_income >= 30.0, employment_years >= 2.0 )
+then
+    modify($app) {
+        composite_score = $app.composite_score + 20
+    }
+    addReason($app, "R05 [+20 điểm Năng lực tài chính]: Thu nhập ròng cao (" + $app.monthly_income + " triệu/tháng >= 30tr) và công việc ổn định (" + $app.employment_years + " năm >= 2 năm).");
+end
+
+rule "R06 - Thuong uy tin tin dung: Credit Score >= 750 & DTI <= 35%"
+    salience 78
+    agenda-group "2-risk-scoring"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, credit_score >= 750, dti_ratio <= 35.0 )
+then
+    modify($app) {
+        composite_score = $app.composite_score + 25
+    }
+    addReason($app, "R06 [+25 điểm Uy tín tín dụng]: Điểm tín dụng nội bộ xuất sắc (" + $app.credit_score + " >= 750) kết hợp tỷ lệ nợ DTI thấp (" + $app.dti_ratio + "% <= 35%).");
+end
+
+rule "R07 - Bao chung tai san dam bao: Gia tri TSDB >= 120% khoan vay"
+    salience 75
+    agenda-group "2-risk-scoring"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, collateral_value >= 1.2 * loan_amount, loan_amount > 0 )
+then
+    modify($app) {
+        composite_score = $app.composite_score + 15,
+        secured_loan = true
+    }
+    addReason($app, "R07 [+15 điểm Bảo chứng tài sản]: Tài sản đảm bảo (" + $app.collateral_value + " triệu) đạt tỷ lệ bao phủ >= 120% khoản vay (" + $app.loan_amount + " triệu). Gắn cờ secured_loan = true.");
+end
+
+rule "R08 - Canh bao rui ro: Thu nhap < 10tr hoac Tham nien < 1 nam hoac 45% < DTI <= 65%"
+    salience 72
+    agenda-group "2-risk-scoring"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, monthly_income < 10.0 || employment_years < 1.0 || (dti_ratio > 45.0 && dti_ratio <= 65.0) )
+then
+    modify($app) {
+        composite_score = $app.composite_score - 15,
+        risk_flag_count = $app.risk_flag_count + 1
+    }
+    addFlag($app, "Cảnh báo rủi ro R08: Thu nhập thấp (<10tr), thâm niên ngắn (<1 năm) hoặc áp lực trả nợ DTI cao (45%–65%).");
+    addReason($app, "R08 [-15 điểm Cảnh báo rủi ro]: Phát hiện yếu tố nhạy cảm tài chính (Thu nhập=" + $app.monthly_income + "tr, Thâm niên=" + $app.employment_years + " năm, DTI=" + $app.dti_ratio + "%).");
+end
+
+rule "R09 - Phan hang rui ro TIER_A (Rui ro rat thap: Diem >= 80)"
+    salience 68
+    agenda-group "2-risk-scoring"
+    activation-group "risk-tier-assignment"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, composite_score >= 80 )
+then
+    modify($app) {
+        risk_tier = "TIER_A",
+        stage_reached = "3-pricing-decision"
+    }
+    addReason($app, "R09 [Xếp hạng TIER_A]: Tổng điểm suy diễn đạt " + $app.composite_score + "/100 (>= 80). Phân loại Hạng A (Rủi ro rất thấp) và hủy các luật xếp hạng thấp hơn trong activation-group.");
+end
+
+rule "R10 - Phan hang rui ro TIER_B (Rui ro thap - trung binh: Diem 60..79)"
+    salience 66
+    agenda-group "2-risk-scoring"
+    activation-group "risk-tier-assignment"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, composite_score >= 60 )
+then
+    modify($app) {
+        risk_tier = "TIER_B",
+        stage_reached = "3-pricing-decision"
+    }
+    addReason($app, "R10 [Xếp hạng TIER_B]: Tổng điểm suy diễn đạt " + $app.composite_score + "/100 (60–79). Phân loại Hạng B (Rủi ro thấp – trung bình).");
+end
+
+rule "R11 - Phan hang rui ro TIER_C (Rui ro trung binh - cao: Diem 40..59)"
+    salience 64
+    agenda-group "2-risk-scoring"
+    activation-group "risk-tier-assignment"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, composite_score >= 40 )
+then
+    modify($app) {
+        risk_tier = "TIER_C",
+        stage_reached = "3-pricing-decision"
+    }
+    addReason($app, "R11 [Xếp hạng TIER_C]: Tổng điểm suy diễn đạt " + $app.composite_score + "/100 (40–59). Phân loại Hạng C (Rủi ro trung bình – cao, cần kiểm soát).");
+end
+
+rule "R12 - Phan hang rui ro TIER_D (Rui ro cao: Diem < 40)"
+    salience 62
+    agenda-group "2-risk-scoring"
+    activation-group "risk-tier-assignment"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, composite_score < 40 )
+then
+    modify($app) {
+        risk_tier = "TIER_D",
+        stage_reached = "3-pricing-decision"
+    }
+    addReason($app, "R12 [Xếp hạng TIER_D]: Tổng điểm suy diễn chỉ đạt " + $app.composite_score + "/100 (< 40). Phân loại Hạng D (Rủi ro cao).");
+end
+
+// ============================================================================
+// TANG 3: SUY DIEN QUYET DINH PHE DUYET, HAN MUC & DINH GIA LAI SUAT
+// Agenda Group: "3-pricing-decision" | Salience: 30..50
+// ============================================================================
+
+rule "R13 - Phe duyet tu dong Hang TIER_A (100% han muc, Lai suat uu dai 7.5% / VIP 6.8%)"
+    salience 50
+    agenda-group "3-pricing-decision"
+    activation-group "final-decision"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, risk_tier == "TIER_A" )
+then
+    modify($app) {
+        decision = "APPROVED",
+        approved_amount = $app.loan_amount,
+        interest_rate = ($app.is_vip == true ? 6.8 : 7.5),
+        stage_reached = "4-dss-explanation"
+    }
+    addReason($app, "R13 [Phê duyệt tự động - TIER_A]: Duyệt 100% hạn mức yêu cầu (" + $app.loan_amount + " triệu VND), áp dụng lãi suất ưu đãi " + $app.interest_rate + "%/năm.");
+end
+
+rule "R14 - Phe duyet Hang TIER_B co Tai san dam bao (100% han muc, Lai suat 9.2%/nam)"
+    salience 46
+    agenda-group "3-pricing-decision"
+    activation-group "final-decision"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, risk_tier == "TIER_B", secured_loan == true )
+then
+    modify($app) {
+        decision = "APPROVED",
+        approved_amount = $app.loan_amount,
+        interest_rate = 9.2,
+        stage_reached = "4-dss-explanation"
+    }
+    addReason($app, "R14 [Phê duyệt có TSĐB - TIER_B]: Khách hàng Hạng B có tài sản đảm bảo đạt chuẩn. Duyệt 100% hạn mức (" + $app.loan_amount + " triệu VND) với lãi suất 9.2%/năm.");
+end
+
+rule "R15 - Phe duyet co dieu kien Hang TIER_B vay tin chap (Cat giam 80% han muc, Lai suat 10.8%/nam)"
+    salience 42
+    agenda-group "3-pricing-decision"
+    activation-group "final-decision"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, risk_tier == "TIER_B", secured_loan == false )
+then
+    modify($app) {
+        decision = "CONDITIONAL_APPROVAL",
+        approved_amount = round2($app.loan_amount * 0.8),
+        interest_rate = 10.8,
+        stage_reached = "4-dss-explanation"
+    }
+    addReason($app, "R15 [Duyệt có điều kiện - TIER_B Tín chấp]: Khách hàng Hạng B vay tín chấp (không có TSĐB đạt chuẩn). Cấp hạn mức an toàn tối đa 80% (" + $app.approved_amount + " triệu VND), lãi suất 10.8%/năm kèm điều kiện chứng minh dòng tiền.");
+end
+
+rule "R16 - Chuyen Hoi dong Tin dung tham dinh Hang TIER_C (De xuat han muc an toan 55%, Lai suat 12.5%/nam)"
+    salience 38
+    agenda-group "3-pricing-decision"
+    activation-group "final-decision"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, risk_tier == "TIER_C" || (risk_tier == "TIER_B" && dti_ratio >= 30.0) )
+then
+    modify($app) {
+        decision = "MANUAL_REVIEW",
+        approved_amount = round2($app.loan_amount * 0.55),
+        interest_rate = 12.5,
+        stage_reached = "4-dss-explanation"
+    }
+    addReason($app, "R16 [Chuyển Hội đồng Tín dụng - TIER_C]: Hồ sơ có xung đột chỉ số hoặc thuộc vùng rủi ro trung bình–cao. Chuyển thẩm định chuyên sâu với hạn mức an toàn khuyến nghị 55% (" + $app.approved_amount + " triệu VND) và lãi suất bù đắp rủi ro 12.5%/năm.");
+end
+
+rule "R17 - Tu choi cap tin dung Hang TIER_D (Diem rui ro tong hop vuot nguong chiu dung)"
+    salience 34
+    agenda-group "3-pricing-decision"
+    activation-group "final-decision"
+    no-loop true
+    lock-on-active true
+when
+    $elig : EligibilityPassed( status == "PASSED" )
+    $app : Applicant( applicant_id == $elig.applicant_id, eligible == true, risk_tier == "TIER_D" )
+then
+    modify($app) {
+        decision = "REJECTED",
+        approved_amount = 0.0,
+        interest_rate = 0.0,
+        rejection_code = "LOW_COMPOSITE_SCORE",
+        stage_reached = "4-dss-explanation"
+    }
+    addReason($app, "R17 [Từ chối ở Tầng 3 - TIER_D]: Tổng điểm tín dụng suy diễn (" + $app.composite_score + "/100) thấp hơn ngưỡng an toàn tối thiểu (40 điểm).");
+end
+
+// ============================================================================
+// TANG 4: TONG HOP KHUYEN NGHI DSS & GIAI QUYET TRUONG HOP BIEN (EXPLANATION)
+// Agenda Group: "4-dss-explanation" | Salience: 10..20
+// ============================================================================
+
+rule "R18 - Kiem soat khoan vay quy mo lon (>= 500 trieu VND): Yeu cau dinh gia doc lap"
+    salience 20
+    agenda-group "4-dss-explanation"
+    no-loop true
+    lock-on-active true
+when
+    $app : Applicant( loan_amount >= 500.0, decision in ("APPROVED", "CONDITIONAL_APPROVAL") )
+then
+    modify($app) {
+        independent_valuation_required = true
+    }
+    addRecommendation($app, "R18 [Kiểm soát rủi ro khoản vay lớn >= 500 triệu]: Dù hồ sơ đã được phê duyệt, DSS yêu cầu thực hiện định giá chéo tài sản đảm bảo bởi đơn vị độc lập và hậu kiểm sao kê dòng tiền 6 tháng gần nhất trước khi giải ngân.");
+end
+
+rule "R19 - Khuyen nghi DSS nang hang ho so cho Duyet co dieu kien / Tham dinh thu cong"
+    salience 16
+    agenda-group "4-dss-explanation"
+    no-loop true
+    lock-on-active true
+when
+    $app : Applicant( decision in ("CONDITIONAL_APPROVAL", "MANUAL_REVIEW") )
+then
+    addRecommendation($app, "R19 [Lộ trình nâng hạng lên APPROVED 100%]: (1) Bổ sung tài sản đảm bảo đạt tối thiểu " + round2($app.loan_amount * 1.2) + " triệu VND (120% khoản vay) để nhận +15 điểm bảo chứng và chuyển sang gói vay có TSĐB lãi suất 9.2%/năm; hoặc (2) Điều chỉnh giảm số tiền vay xuống " + $app.approved_amount + " triệu VND để giảm áp lực DTI.");
+end
+
+rule "R20 - Khuyen nghi DSS cai thien ho so cho khach hang bi Tu choi (Actionable Remediation)"
+    salience 12
+    agenda-group "4-dss-explanation"
+    no-loop true
+    lock-on-active true
+when
+    $app : Applicant( decision == "REJECTED" )
+then
+    addRecommendation($app, "R20 [Khuyến nghị khắc phục hồ sơ bị Từ chối (" + $app.rejection_code + ")]: Để đủ điều kiện tái thẩm định, khách hàng cần tất toán toàn bộ dư nợ quá hạn trên CIC (nếu có), giảm quy mô khoản vay hoặc kéo dài kỳ hạn vay để đưa tỷ lệ DTI xuống dưới 45% (thu nhập khuyến nghị tối thiểu " + round2($app.loan_amount * 0.08) + " triệu/tháng), hoặc bổ sung người đồng trả nợ có thu nhập ổn định.");
+end

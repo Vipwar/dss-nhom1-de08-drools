@@ -1,0 +1,11 @@
+# ============================================================================
+# requirements.txt
+# Do an Cuoi ky Mon He thong Ho tro Ra quyet dinh (DSS) - Nhom 1 - De 08: DROOLS
+# ----------------------------------------------------------------------------
+# He thong duoc thiet ke chay 100% bang Thu vien Chuan Python 3.10+ (Standard Library)
+# de dam bao chay ngay lap tuc voi lenh `python app.py` tren moi may tinh ma khong
+# bat buoc cai them package ngoai hay JVM/Maven.
+#
+# Cac thu vien tuy chon duoi day chi phuc vu neu muon chay kiem thu voi pytest:
+# ============================================================================
+# pytest>=7.4.0

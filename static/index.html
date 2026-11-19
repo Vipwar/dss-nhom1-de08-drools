@@ -219,6 +219,9 @@
               <span id="execTierBadge" class="badge-pill tier-TIER_A">
                 TIER_A
               </span>
+              <button type="button" onclick="downloadAuditJson()" class="px-2.5 py-1 rounded-md bg-sky-700 hover:bg-sky-600 text-white text-xs font-semibold">
+                ⬇ Tải JSON Kiểm toán
+              </button>
               <button type="button" onclick="exportCreditMemoReport()" class="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold">
                 🖨️ In Tờ trình
               </button>
@@ -578,9 +581,18 @@
               Chấm điểm Danh mục 15 Hồ sơ Tín dụng Hàng loạt qua Drools Rule Engine
             </h2>
           </div>
-          <button type="button" onclick="loadBatchEvaluation()" class="btn-primary text-xs">
-            Chạy lại Chấm điểm Toàn bộ 15 Hồ sơ CSV
-          </button>
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="btn-secondary text-xs cursor-pointer">
+              <span>📂 Nạp File CSV Tùy chỉnh</span>
+              <input type="file" accept=".csv" class="hidden" onchange="uploadCustomBatchCsv(event)" />
+            </label>
+            <button type="button" onclick="exportBatchResultsCsv()" class="btn-secondary text-xs">
+              ⬇ Xuất Kết quả ra CSV
+            </button>
+            <button type="button" onclick="loadBatchEvaluation()" class="btn-primary text-xs">
+              Chạy lại 15 Hồ sơ Mẫu
+            </button>
+          </div>
         </div>
 
         <!-- KPIs Thống kê Danh mục -->
@@ -727,20 +739,27 @@
           <!-- Render 3 cột Drools vs CLIPS vs Prolog từ JS -->
         </div>
 
-        <!-- Xem mã nguồn đối chứng .drl vs .clp vs .pl -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
+        <!-- Xem mã nguồn đối chứng .clp vs .pl vs Java Apache KIE Drools 8 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-2">
           <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-900 text-slate-200">
             <div class="text-xs font-bold uppercase text-amber-300 mb-2">
-              Mã nguồn Luật NASA CLIPS (`rules/credit_approval.clp` – Forward Chaining Classic Rete)
+              1. Luật NASA CLIPS (`rules/credit_approval.clp` – Classic Rete)
             </div>
             <pre id="clipsSourcePreview" class="text-[11px] font-mono overflow-x-auto max-h-60 text-slate-300"></pre>
           </div>
 
           <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-900 text-slate-200">
             <div class="text-xs font-bold uppercase text-teal-300 mb-2">
-              Mã nguồn Tri thức SWI-Prolog (`rules/credit_approval.pl` – Backward Chaining SLD Resolution)
+              2. Tri thức SWI-Prolog (`rules/credit_approval.pl` – SLD Resolution)
             </div>
             <pre id="prologSourcePreview" class="text-[11px] font-mono overflow-x-auto max-h-60 text-slate-300"></pre>
+          </div>
+
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-900 text-slate-200">
+            <div class="text-xs font-bold uppercase text-sky-300 mb-2">
+              3. Tham chiếu Java Apache KIE 8 (`CreditApprovalDroolsApp.java`)
+            </div>
+            <pre id="javaKieSourcePreview" class="text-[11px] font-mono overflow-x-auto max-h-60 text-slate-300"></pre>
           </div>
         </div>
       </div>

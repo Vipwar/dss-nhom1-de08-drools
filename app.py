@@ -18,11 +18,19 @@ import csv
 import json
 import mimetypes
 import os
+import sys
 import traceback
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict
 from urllib.parse import urlparse
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 from engine.drools_engine import CreditApprovalDSS, KieBase
 from engine.multi_paradigm_comparator import (
@@ -38,6 +46,22 @@ PROLOG_PATH = os.path.join(BASE_DIR, "rules", "credit_approval.pl")
 DT_CSV_PATH = os.path.join(BASE_DIR, "rules", "decision_table_rules.csv")
 SAMPLE_CSV_PATH = os.path.join(BASE_DIR, "data", "sample_applicants.csv")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
+JAVA_KIE_APP_PATH = os.path.join(
+    BASE_DIR,
+    "java_kie_reference",
+    "src",
+    "main",
+    "java",
+    "vn",
+    "edu",
+    "dss",
+    "nhom1",
+    "credit",
+    "CreditApprovalDroolsApp.java",
+)
+JAVA_KMODULE_PATH = os.path.join(
+    BASE_DIR, "java_kie_reference", "src", "main", "resources", "META-INF", "kmodule.xml"
+)
 
 # Khoi tao dich vu Drools DSS toan cuc & Bo doi sanh da cong cu (Drools vs CLIPS vs Prolog)
 DSS_SERVICE = CreditApprovalDSS(
@@ -55,6 +79,14 @@ PARADIGM_COMPARATOR = MultiParadigmComparator(
 
 with open(DRL_PATH, "r", encoding="utf-8") as _f:
     DEFAULT_DRL_TEXT = _f.read()
+
+JAVA_KIE_SOURCE = ""
+if os.path.exists(JAVA_KIE_APP_PATH):
+    with open(JAVA_KIE_APP_PATH, "r", encoding="utf-8") as _jf:
+        JAVA_KIE_SOURCE = _jf.read()
+if os.path.exists(JAVA_KMODULE_PATH):
+    with open(JAVA_KMODULE_PATH, "r", encoding="utf-8") as _kf:
+        JAVA_KIE_SOURCE = f"<!-- META-INF/kmodule.xml -->\n{_kf.read()}\n\n// CreditApprovalDroolsApp.java\n{JAVA_KIE_SOURCE}"
 
 
 def load_decision_table_rows() -> list[dict[str, Any]]:
@@ -146,6 +178,7 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
                         "drl_source": DSS_SERVICE.active_drl_text,
                         "clips_source": PARADIGM_COMPARATOR.clips_source,
                         "prolog_source": PARADIGM_COMPARATOR.prolog_source,
+                        "java_kie_source": JAVA_KIE_SOURCE,
                         "initial_evaluation": default_eval,
                         "rule_verification": verification,
                         "initial_comparison": comparison,
@@ -172,6 +205,7 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
                         "default_drl_source": DEFAULT_DRL_TEXT,
                         "clips_source": PARADIGM_COMPARATOR.clips_source,
                         "prolog_source": PARADIGM_COMPARATOR.prolog_source,
+                        "java_kie_source": JAVA_KIE_SOURCE,
                         "total_rules": len(DSS_SERVICE.kie_base.rules),
                         "decision_table_rows": load_decision_table_rows(),
                     }

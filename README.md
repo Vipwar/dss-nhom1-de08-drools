@@ -2,8 +2,9 @@
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B%20Standard%20Library-0284c7?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Rule Engine](https://img.shields.io/badge/Rule%20Engine-Apache%20KIE%20%2F%20Drools%20DRL%20%2B%20CLIPS%20%2B%20Prolog-0d9488?style=for-the-badge)](https://docs.drools.org/)
-[![Tests](https://img.shields.io/badge/Unit%20%26%20API%20Tests-23%2F23%20PASSED%20(100%25)-16a34a?style=for-the-badge)](#3-hướng-dẫn-chạy-kiểm-thử-tự-động-unit--integration-tests)
+[![Tests](https://img.shields.io/badge/Unit%20%26%20API%20Tests-24%2F24%20PASSED%20(100%25)-16a34a?style=for-the-badge)](#3-hướng-dẫn-chạy-kiểm-thử-tự-động-unit--integration-tests)
 [![Rule V&V](https://img.shields.io/badge/Formal%20Rule%20V%26V-5%2F5%20Verified%20(100%2F100)-4f46e5?style=for-the-badge)](#1-tổng-quan-kiến-trúc-đồ-án)
+[![CI](https://github.com/Vipwar/dss-nhom1-de08-drools/actions/workflows/ci.yml/badge.svg)](https://github.com/Vipwar/dss-nhom1-de08-drools/actions/workflows/ci.yml)
 
 > **Thông tin Đồ án:**
 > - **Môn học:** Hệ thống Hỗ trợ Ra quyết định (*Decision Support Systems - DSS*)
@@ -33,7 +34,7 @@ flowchart LR
 ### Các Điểm Nhấn Kỹ Thuật & Học Thuật Đạt Điểm Tối Đa (10/10):
 1. **Lõi Drools Engine chuẩn (`engine/drools_engine.py`):**
    - `DRLParser` & `DecisionTableLoader`: Đọc trực tiếp file `.drl` (`package`, `import`, `declare`, `rule`, `salience`, `agenda-group`, `activation-group`, `no-loop`, `lock-on-active`, `when`, `then`) và bảng quyết định `.csv`.
-   - `RetePhreakNetwork`: Xây dựng đồ thị nút suy diễn `EntryPointNode` $\rightarrow$ `ObjectTypeNode` $\rightarrow$ `AlphaNode` (có cơ chế **Alpha Node Sharing** gom 64 điều kiện đơn thành 26 nút, tiết kiệm 38 phép lọc) $\rightarrow$ `BetaNode` (có 13 nút **Join 2-Fact** `EligibilityPassed` $\bowtie$ `Applicant`) $\rightarrow$ `RuleTerminalNode`.
+   - `RetePhreakNetwork`: Xây dựng đồ thị nút suy diễn `EntryPointNode` $\rightarrow$ `ObjectTypeNode` $\rightarrow$ `AlphaNode` (có cơ chế **Alpha Node Sharing** gom 66 điều kiện đơn thành 36 nút, tiết kiệm 30 phép lọc) $\rightarrow$ `BetaNode` (có 13 nút **Join 2-Fact** `EligibilityPassed` $\bowtie$ `Applicant`) $\rightarrow$ `RuleTerminalNode`.
    - `KieSession` & **Truth Maintenance System (`insertLogical`)**: Quản lý `FactHandle`, tự động rút lại (`Auto-Retract`) Fact suy diễn `EligibilityPassed` khi điều kiện gốc trên `Applicant` không còn thỏa mãn.
    - `Agenda` & `ConflictResolver`: Giải quyết xung đột chuẩn Drools theo ngăn xếp `agenda-group` $\rightarrow$ độ ưu tiên `salience` $\rightarrow$ hủy xung đột cùng nhóm `activation-group` $\rightarrow$ chống lặp `no-loop` & `lock-on-active`.
 2. **Tập Luật Nghiệp Vụ 4 Tầng (`rules/credit_approval.drl`):**
@@ -53,38 +54,42 @@ flowchart LR
 
 ---
 
-## 2. HƯỚNG DẪN CHẠY NHANH ỨNG DỤNG WEB DEMO (1 LỆNH DUY NHẤT)
+## 2. HƯỚNG DẪN CHẠY NHANH ỨNG DỤNG WEB DEMO & CLI TERMINAL (1 LỆNH DUY NHẤT)
 
 Hệ thống sử dụng thư viện chuẩn của Python (`ThreadingHTTPServer`) nên chạy ngay lập tức trên mọi máy tính có Python 3.10+ mà không cần cài thêm bất kỳ thư viện ngoài nào:
 
 ```bash
+# Cách 1: Chạy Giao diện Web FinTech DSS Dashboard
 python app.py
+
+# Cách 2: Chạy Demo trực tiếp trên màn hình Terminal (CLI Walkthrough)
+python cli_demo.py
 ```
-*(Hoặc `python3 app.py` trên Linux/macOS. Có thể tùy chỉnh cổng bằng `python app.py --port 8000`)*.
+*(Trên máy Windows tại phòng máy trường, có thể nhấp đúp trực tiếp vào file `RUN_DEMO_WINDOWS.bat` để tự động chạy kiểm thử, khởi động server và mở trình duyệt Web).*
 
 Sau đó mở trình duyệt truy cập:
 - **URL Dashboard:** `http://localhost:8000`
 
 ### 7 Khu vực Tương tác trên Giao diện FinTech DSS Dashboard:
 1. **Khu vực 1 – Thanh Kịch bản Demo 1-Click (6 Preset Scenarios):** Nạp nhanh 6 kịch bản điển hình (VIP Hạng A, Hạng B Có TSĐB, Hạng B Tín chấp, Hồ sơ Xung đột Hạng C, Knock-out CIC, Knock-out DTI) hoặc chọn từ 15 hồ sơ CSV.
-2. **Khu vực 2 – Executive Decision Card, 5D Radar Chart & In Tờ trình Tín dụng:** Hiển thị quyết định cuối cùng, điểm suy diễn tổng hợp `/100`, hạng rủi ro, hạn mức phê duyệt, lãi suất đề xuất, trả góp hàng tháng, biểu đồ Radar 5 chiều, khuyến nghị DSS và nút **In Tờ trình Thẩm định Tín dụng (Credit Appraisal Memo)**.
+2. **Khu vực 2 – Executive Decision Card, 5D Radar Chart, Tải JSON Kiểm toán & In Tờ trình Tín dụng:** Hiển thị quyết định cuối cùng, điểm suy diễn tổng hợp `/100`, hạng rủi ro, hạn mức phê duyệt, lãi suất đề xuất, trả góp hàng tháng, biểu đồ Radar 5 chiều (hỗ trợ cả chế độ Offline Canvas), nút **Tải JSON Kiểm toán** và nút **In Tờ trình Thẩm định Tín dụng (Credit Appraisal Memo)**.
 3. **Khu vực 3 – Sơ đồ Mạng Suy diễn Rete / PHREAK & Step-by-Step Replay:** Trực quan hóa các nút phát sáng theo từng chu kỳ suy diễn (`▶ Chạy từng bước Replay`) và nút **Minh họa TMS (`insertLogical`)**.
 4. **Khu vực 4 – Nhật ký Truy vết Kích hoạt Luật & Conflict Resolution Log:** Hiển thị bảng Timeline từng chu kỳ, tập xung đột `Conflict Set` trên Agenda, biến đổi Fact `Before -> After` và danh sách các luật bị hủy do `activation-group`.
 5. **Khu vực 5 – Phòng Thí nghiệm What-If, Phân tích Độ nhạy & Suy diễn ngược Tìm Mục tiêu (`Backward Goal-Seeker`):** Kéo thanh trượt giả lập thay đổi Thu nhập, Số tiền vay, Giá trị TSĐB, Điểm tín dụng, DTI để so sánh **Trước (Baseline) vs Sau (What-If)**, vẽ đường cong độ nhạy và tìm lộ trình tối ưu đạt `APPROVED 100%` / `TIER_A`.
-6. **Khu vực 6 – Đối sánh Thực nghiệm 3 Hệ `DROOLS (.drl)` vs `CLIPS (.clp)` vs `PROLOG (.pl)` & Kiểm chứng Tập luật (`Formal Rule V&V`):** Chạy cùng hồ sơ trên 3 mô hình suy diễn, xem mã nguồn tương đương `.drl` / `.clp` / `.pl` và báo cáo kiểm chứng V&V 5 tiêu chí.
-7. **Khu vực 7 – Live DRL Studio & Chấm điểm Hàng loạt 15 Hồ sơ CSV:** Xem và sửa trực tiếp mã nguồn `rules/credit_approval.drl` ngay trên trình duyệt (`Hot-Reload KieBase`), đồng thời chấm điểm toàn bộ 15 hồ sơ trong `data/sample_applicants.csv` với 1 click.
+6. **Khu vực 6 – Đối sánh Thực nghiệm 3 Hệ `DROOLS (.drl)` vs `CLIPS (.clp)` vs `PROLOG (.pl)` + Mã nguồn Java Apache KIE 8 & Kiểm chứng Tập luật (`Formal Rule V&V`):** Chạy cùng hồ sơ trên 3 mô hình suy diễn, xem mã nguồn tương đương `.drl` / `.clp` / `.pl` / `Java KIE 8` và báo cáo kiểm chứng V&V 5 tiêu chí.
+7. **Khu vực 7 – Live DRL Studio, Nạp CSV Tùy chỉnh & Xuất CSV Chấm điểm Hàng loạt:** Xem và sửa trực tiếp mã nguồn `rules/credit_approval.drl` ngay trên trình duyệt (`Hot-Reload KieBase`), đồng thời chấm điểm toàn bộ 15 hồ sơ trong `data/sample_applicants.csv`, tải lên file CSV mới hoặc xuất kết quả chấm điểm ra file CSV chuẩn Excel UTF-8.
 
 ---
 
 ## 3. HƯỚNG DẪN CHẠY KIỂM THỬ TỰ ĐỘNG (UNIT & INTEGRATION TESTS)
 
-Chạy bộ **22 test cases** kiểm thử toàn diện (`DRLParser`, `DecisionTableLoader`, `RetePhreakNetwork`, `AlphaNode Sharing`, `Conflict Resolution`, `no-loop`, `lock-on-active`, `TMS insertLogical`, 6 kịch bản nghiệp vụ, What-If, Batch CSV, Formal Rule V&V, Đối sánh 100% tương đương Drools-CLIPS-Prolog, Backward Goal-Seeker, Java KIE Reference và REST API):
+Chạy bộ **24 test cases** kiểm thử toàn diện (`DRLParser`, `DecisionTableLoader`, `RetePhreakNetwork`, `AlphaNode Sharing`, `Conflict Resolution`, `no-loop`, `lock-on-active`, `TMS insertLogical`, 6 kịch bản nghiệp vụ, What-If, Batch CSV, Formal Rule V&V, Đối sánh 100% tương đương Drools-CLIPS-Prolog, Backward Goal-Seeker, Java KIE Reference, CLI Demo, Office Docs và REST API):
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Kết quả mong đợi: **`Ran 22 tests ... OK (PASS 100%)`**.
+Kết quả mong đợi: **`Ran 24 tests ... OK (PASS 100%)`**.
 
 ---
 
@@ -93,6 +98,8 @@ Kết quả mong đợi: **`Ran 22 tests ... OK (PASS 100%)`**.
 ```text
 dss-nhom1-de08-drools/
 ├── app.py                                      # Web Server & REST API JSON (chạy bằng: python app.py)
+├── cli_demo.py                                 # Chạy Demo trực tiếp trên màn hình Terminal (python cli_demo.py)
+├── RUN_DEMO_WINDOWS.bat                        # File chạy nhanh 1-Click trên máy tính Windows
 ├── engine/
 │   ├── __init__.py                             # Khai báo package engine
 │   ├── drools_engine.py                        # Lõi Drools Engine (DRLParser, Rete/PHREAK, KieBase, KieSession, Agenda, TMS)
@@ -114,7 +121,7 @@ dss-nhom1-de08-drools/
 │   ├── styles.css                              # Hệ thống thiết kế CSS, Print Memo & hiệu ứng nút Rete/PHREAK
 │   └── app.js                                  # Logic tương tác 7 phân hệ, Replay, What-If, Goal-Seek, V&V & Biểu đồ
 ├── tests/
-│   └── test_drools_engine.py                   # 22 Unit & Integration Test Cases (PASS 100%)
+│   └── test_drools_engine.py                   # 24 Unit & Integration Test Cases (PASS 100%)
 ├── docs/
 │   ├── BAO_CAO_DO_AN_DE_08_DROOLS_NHOM_1.docx  # File Word Báo cáo đồ án định dạng chuẩn học thuật (.docx)
 │   ├── SLIDE_THUYET_TRINH_DE_08_DROOLS_NHOM_1.pptx # File PowerPoint 16 Slide thuyết trình chuyên nghiệp (.pptx)

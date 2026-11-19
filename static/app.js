@@ -120,6 +120,7 @@ async function loadOverviewData() {
     STATE.currentGoalSeek = data.initial_goal_seek || null;
     STATE.clipsSource = data.clips_source || "";
     STATE.prologSource = data.prolog_source || "";
+    STATE.javaKieSource = data.java_kie_source || "";
 
     const badge = document.getElementById("headerEngineBadge");
     if (badge && data.project) {
@@ -134,6 +135,9 @@ async function loadOverviewData() {
 
     const prologPre = document.getElementById("prologSourcePreview");
     if (prologPre) prologPre.textContent = STATE.prologSource;
+
+    const javaPre = document.getElementById("javaKieSourcePreview");
+    if (javaPre) javaPre.textContent = STATE.javaKieSource;
 
     renderPresetScenarios();
     populateApplicantDropdowns();
@@ -458,7 +462,11 @@ function renderApplicantRadarChart(dims) {
   }
 
   const canvas = document.getElementById("applicantRadarChart");
-  if (!canvas || typeof window.Chart === "undefined") return;
+  if (!canvas) return;
+  if (typeof window.Chart === "undefined") {
+    drawOfflineRadarCanvas(canvas, labels, values);
+    return;
+  }
 
   if (STATE.charts.radar) {
     STATE.charts.radar.destroy();
@@ -1156,6 +1164,7 @@ async function loadBatchEvaluation() {
 
 function renderBatchPortfolio(batch) {
   if (!batch) return;
+  STATE.currentBatch = batch;
   const dc = batch.decision_counts || {};
   const kpiBox = document.getElementById("batchKpiCards");
   if (kpiBox) {
@@ -1702,6 +1711,171 @@ function exportCreditMemoReport() {
 }
 
 /* ============================================================================
+   XUAT FILE JSON KIEM TOAN, XUAT / NAP CSV HANG LOAT & OFFLINE CANVAS FALLBACK
+   ============================================================================ */
+function downloadAuditJson() {
+  if (!STATE.currentEvaluation) return;
+  const appId = STATE.currentEvaluation.applicant.applicant_id || "CUSTOM";
+  const payload = {
+    exported_at: new Date().toISOString(),
+    project: "DSS - Nhom 1 - De 08: DROOLS Rule Engine",
+    evaluation: STATE.currentEvaluation,
+    rule_verification: STATE.ruleVerification,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `drools_audit_trace_${appId}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportBatchResultsCsv() {
+  const batch = STATE.currentBatch;
+  if (!batch || !batch.items || batch.items.length === 0) {
+    alert("Đang tải dữ liệu chấm điểm hàng loạt, vui lòng thử lại sau giây lát.");
+    return;
+  }
+  const headers = [
+    "applicant_id",
+    "full_name",
+    "age",
+    "monthly_income",
+    "credit_score",
+    "dti_ratio",
+    "loan_amount",
+    "collateral_value",
+    "composite_score",
+    "risk_tier",
+    "decision",
+    "approved_amount",
+    "interest_rate",
+    "fired_rules",
+  ];
+  const rows = [headers.join(",")];
+  batch.items.forEach((item) => {
+    const row = [
+      item.applicant_id,
+      `"${String(item.full_name || "").replace(/"/g, '""')}"`,
+      item.age,
+      item.monthly_income,
+      item.credit_score,
+      item.dti_ratio,
+      item.loan_amount,
+      item.collateral_value,
+      item.composite_score,
+      item.risk_tier,
+      item.decision,
+      item.approved_amount,
+      item.interest_rate,
+      `"${(item.fired_rules || []).join(" -> ")}"`,
+    ];
+    rows.push(row.join(","));
+  });
+
+  // Thêm UTF-8 BOM để mở trực tiếp trên Microsoft Excel không bị lỗi font tiếng Việt
+  const csvContent = "\uFEFF" + rows.join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "ket_qua_cham_diem_tin_dung_drools_nhom1.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function uploadCustomBatchCsv(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const lines = text
+      .replace(/^\uFEFF/, "")
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length < 2) {
+      alert("File CSV cần có ít nhất 1 dòng tiêu đề và 1 dòng dữ liệu hồ sơ.");
+      return;
+    }
+    const headers = lines[0].split(",").map((h) => h.trim());
+    const applicants = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+      const obj = {};
+      headers.forEach((h, idx) => {
+        obj[h] = cols[idx] !== undefined ? cols[idx] : "";
+      });
+      applicants.push(obj);
+    }
+
+    const resp = await fetch("/api/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ applicants }),
+    });
+    const data = await resp.json();
+    if (data.status !== "OK") throw new Error(data.message);
+    renderBatchPortfolio(data.batch);
+  } catch (err) {
+    alert("Lỗi khi nạp file CSV: " + err.message);
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function drawOfflineRadarCanvas(canvas, labels, values) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const w = (canvas.width = canvas.parentElement.clientWidth || 260);
+  const h = (canvas.height = canvas.parentElement.clientHeight || 220);
+  ctx.clearRect(0, 0, w, h);
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const radius = Math.min(w, h) * 0.34;
+  const count = labels.length;
+
+  ctx.strokeStyle = "#cbd5e1";
+  ctx.lineWidth = 1;
+  [0.25, 0.5, 0.75, 1].forEach((scale) => {
+    ctx.beginPath();
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count - Math.PI / 2;
+      const x = cx + Math.cos(angle) * radius * scale;
+      const y = cy + Math.sin(angle) * radius * scale;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  });
+
+  ctx.beginPath();
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count - Math.PI / 2;
+    const val = Math.max(0, Math.min(100, values[i] || 0)) / 100;
+    const x = cx + Math.cos(angle) * radius * val;
+    const y = cy + Math.sin(angle) * radius * val;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = "rgba(2, 132, 199, 0.25)";
+  ctx.fill();
+  ctx.strokeStyle = "#0284c7";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+/* ============================================================================
    TIEN ICH ESCAPE HTML
    ============================================================================ */
 function escapeHtml(str) {
@@ -1713,3 +1887,4 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+

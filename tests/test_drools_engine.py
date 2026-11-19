@@ -428,7 +428,17 @@ class TestDroolsEngineAndCreditDSS(unittest.TestCase):
             self.assertTrue(os.path.exists(path), f"Missing academic deliverable: {path}")
             self.assertGreater(os.path.getsize(path), 10000, f"Deliverable file too small: {path}")
 
+    def test_24_cli_demo_and_ci_workflow_integrity(self) -> None:
+        """Kiem thu cli_demo.py, RUN_DEMO_WINDOWS.bat va GitHub Actions CI workflow."""
+        cli_path = os.path.join(BASE_DIR, "cli_demo.py")
+        bat_path = os.path.join(BASE_DIR, "RUN_DEMO_WINDOWS.bat")
+        ci_path = os.path.join(BASE_DIR, ".github", "workflows", "ci.yml")
+        self.assertTrue(os.path.exists(cli_path))
+        self.assertTrue(os.path.exists(bat_path))
+        self.assertTrue(os.path.exists(ci_path))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
 

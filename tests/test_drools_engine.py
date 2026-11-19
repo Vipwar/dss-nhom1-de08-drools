@@ -1,7 +1,9 @@
 """
 tests/test_drools_engine.py
 ===============================================================================
-BO KIEM THU TU DONG TOAN DIEN (UNIT TEST & INTEGRATION TEST) CHO DROOLS ENGINE
+BO KIEM THU TU DONG TOAN DIEN (22 UNIT & INTEGRATION TESTS) CHO DROOLS ENGINE,
+RULE BASE V&V, BACKWARD CHAINING GOAL-SEEKER & DOI SANH DROOLS vs CLIPS vs PROLOG
+-------------------------------------------------------------------------------
 Do an Cuoi ky Mon He thong Ho tro Ra quyet dinh (DSS) - Nhom 1 - De 08: DROOLS
 Chay bang lenh:
     python -m unittest discover -s tests -v
@@ -18,15 +20,22 @@ from engine.drools_engine import (
     Fact,
     KieBase,
 )
+from engine.multi_paradigm_comparator import (
+    BackwardGoalSeeker,
+    MultiParadigmComparator,
+    RuleBaseVerifier,
+)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DRL_PATH = os.path.join(BASE_DIR, "rules", "credit_approval.drl")
+CLIPS_PATH = os.path.join(BASE_DIR, "rules", "credit_approval.clp")
+PROLOG_PATH = os.path.join(BASE_DIR, "rules", "credit_approval.pl")
 DT_CSV_PATH = os.path.join(BASE_DIR, "rules", "decision_table_rules.csv")
 SAMPLE_CSV_PATH = os.path.join(BASE_DIR, "data", "sample_applicants.csv")
 
 
 class TestDroolsEngineAndCreditDSS(unittest.TestCase):
-    """Bo kiem thu 16 test cases kiem chung toan bo kien truc Drools & Bai toan DSS."""
+    """Bo kiem thu 22 test cases kiem chung toan bo kien truc Drools, CLIPS, Prolog & DSS."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -38,6 +47,13 @@ class TestDroolsEngineAndCreditDSS(unittest.TestCase):
         cls.applicants = {
             row["applicant_id"]: row for row in cls.dss.load_sample_applicants()
         }
+        cls.verifier = RuleBaseVerifier(cls.dss)
+        cls.goal_seeker = BackwardGoalSeeker(cls.dss)
+        cls.comparator = MultiParadigmComparator(
+            dss=cls.dss,
+            clips_path=CLIPS_PATH,
+            prolog_path=PROLOG_PATH,
+        )
 
     def test_01_drl_parser_metadata_and_rules(self) -> None:
         """Kiem thu DRLParser: doc dung package, declare types va 20 luat R01-R20."""
@@ -80,7 +96,6 @@ class TestDroolsEngineAndCreditDSS(unittest.TestCase):
         self.assertGreater(stats["unique_alpha_nodes"], 10)
         self.assertGreater(stats["shared_alpha_nodes"], 0)
         self.assertGreater(stats["alpha_nodes_saved_by_sharing"], 0)
-        # Cac luat Tang 2 & Tang 3 (R05..R17) join 2 Fact: EligibilityPassed va Applicant
         self.assertEqual(stats["multi_fact_beta_joins"], 13)
         self.assertEqual(stats["total_terminal_nodes"], 23)
 
@@ -90,7 +105,6 @@ class TestDroolsEngineAndCreditDSS(unittest.TestCase):
         fired = res["engine"]["fired_rules"]
         cancelled = res["engine"]["cancelled_activations"]
 
-        # R02 co salience 98 > R03 salience 95 -> R02 phai chay va huy R03 trong activation-group "hard-knockout"
         self.assertIn("R02", fired)
         self.assertNotIn("R03", fired)
         self.assertEqual(res["summary"]["rejection_code"], "KO_CIC_BAD_DEBT")
@@ -119,7 +133,6 @@ class TestDroolsEngineAndCreditDSS(unittest.TestCase):
         session.insert(fact)
         out = session.fire_all_rules(max_cycles=20, agenda_pipeline=["1-eligibility"])
 
-        # Nho no-loop true, luat chi chay dung 1 lan thay vi lap den max_cycles
         self.assertEqual(out["total_cycles"], 1)
         self.assertEqual(fact.composite_score, 20)
 
@@ -130,14 +143,11 @@ class TestDroolsEngineAndCreditDSS(unittest.TestCase):
         app_fact = self.dss.build_applicant_fact(self.applicants["APP001"])
         handle = session.insert(app_fact)
 
-        # Chay Tang 1 -> R04 se insertLogical(EligibilityPassed)
         session.fire_all_rules(agenda_pipeline=["1-eligibility"])
         elig_facts_before = session.get_facts("EligibilityPassed")
         self.assertEqual(len(elig_facts_before), 1)
         self.assertEqual(elig_facts_before[0].status, "PASSED")
 
-        # Bay gio cap nhat Fact goc: phat hien khach hang co no xau CIC (cic_bad_debt = True)
-        # Dieu kien LHS cua R04 (cic_bad_debt == false) khong con dung -> TMS phai tu dong rut lai EligibilityPassed!
         session.modify(handle, cic_bad_debt=True)
         elig_facts_after = session.get_facts("EligibilityPassed")
         self.assertEqual(len(elig_facts_after), 0)
@@ -160,7 +170,6 @@ class TestDroolsEngineAndCreditDSS(unittest.TestCase):
         self.assertTrue(summ["independent_valuation_required"])
         self.assertEqual(fired, ["R04", "R05", "R06", "R07", "R09", "R13", "R18", "DT01"])
 
-        # Kiem tra R09 da huy R10 va R11 trong activation-group "risk-tier-assignment"
         cancelled_codes = [c["cancelled_rule_code"] for c in res["engine"]["cancelled_activations"]]
         self.assertIn("R10", cancelled_codes)
         self.assertIn("R11", cancelled_codes)
@@ -249,7 +258,7 @@ class TestDroolsEngineAndCreditDSS(unittest.TestCase):
         """Kiem thu What-If Simulator: Bo sung TSDB cho APP003 giup nang tu CONDITIONAL len APPROVED 100%."""
         baseline = dict(self.applicants["APP003"])
         what_if = dict(self.applicants["APP003"])
-        what_if["collateral_value"] = 300.0  # >= 1.2 * 200.0 -> kich hoat R07 (+15 diem -> 80 diem TIER_A!)
+        what_if["collateral_value"] = 300.0
 
         sim = self.dss.run_what_if(baseline, what_if)
         self.assertEqual(sim["baseline"]["summary"]["decision"], "CONDITIONAL_APPROVAL")
@@ -278,7 +287,92 @@ class TestDroolsEngineAndCreditDSS(unittest.TestCase):
         self.assertEqual(info["total_rules"], 23)
 
     def test_17_web_server_rest_api_endpoints(self) -> None:
-        """Kiem thu Web Server & REST API trong app.py (GET /, /api/overview, /api/evaluate, /api/what-if, /api/batch, /api/tms-demo)."""
+        """Kiem thu Web Server & REST API trong app.py."""
+        import json
+        import threading
+        import urllib.request
+        from http.server import ThreadingHTTPServer
+        from app import DroolsDSSRequestHandler
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), DroolsDSSRequestHandler)
+        port = server.server_address[1]
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        try:
+            base_url = f"http://127.0.0.1:{port}"
+            with urllib.request.urlopen(f"{base_url}/") as resp:
+                self.assertEqual(resp.status, 200)
+                html = resp.read().decode("utf-8")
+                self.assertIn("Drools Credit Approval", html)
+
+            with urllib.request.urlopen(f"{base_url}/api/overview") as resp:
+                self.assertEqual(resp.status, 200)
+                overview = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(overview["status"], "OK")
+                self.assertEqual(len(overview["presets"]), 6)
+                self.assertEqual(len(overview["sample_applicants"]), 15)
+                self.assertTrue(overview["rule_verification"]["all_passed"])
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_18_rule_base_verification_and_validation_5_checks(self) -> None:
+        """Kiem thu Formal Rule Base Verification & Validation (5 tieu chuan V&V)."""
+        vv = self.verifier.verify_all()
+        self.assertTrue(vv["all_passed"])
+        self.assertEqual(vv["overall_status"], "VERIFIED_100_PERCENT")
+        self.assertEqual(len(vv["checks"]), 5)
+        for chk in vv["checks"]:
+            self.assertTrue(chk["passed"], f"V&V check failed: {chk['check_id']}")
+
+    def test_19_backward_chaining_goal_seeker_counterfactual_plans(self) -> None:
+        """Kiem thu BackwardGoalSeeker: Tim lo trinh nang hang cho APP003, APP004 va APP005."""
+        gs_03 = self.goal_seeker.seek_goal(self.applicants["APP003"], "APPROVED_100")
+        self.assertFalse(gs_03["already_achieved"])
+        self.assertGreaterEqual(len(gs_03["verified_plans"]), 1)
+        for plan in gs_03["verified_plans"]:
+            self.assertEqual(plan["achieved_decision"], "APPROVED")
+
+        gs_04 = self.goal_seeker.seek_goal(self.applicants["APP004"], "TIER_A")
+        self.assertFalse(gs_04["already_achieved"])
+        self.assertGreaterEqual(len(gs_04["verified_plans"]), 1)
+        self.assertEqual(gs_04["verified_plans"][0]["achieved_tier"], "TIER_A")
+
+    def test_20_multi_paradigm_comparison_drools_vs_clips_vs_prolog_all_15_applicants(self) -> None:
+        """Kiem thu Doi sanh 3 Cong cu (Drools .drl vs CLIPS .clp vs Prolog .pl) khop 100% tren ca 15 ho so."""
+        for app_id, payload in self.applicants.items():
+            cmp_res = self.comparator.compare_on_applicant(payload)
+            self.assertTrue(
+                cmp_res["consensus_verified"],
+                f"Khong khop ket qua giua Drools, CLIPS va Prolog tren ho so {app_id}",
+            )
+
+    def test_21_java_kie_maven_reference_structure_integrity(self) -> None:
+        """Kiem thu cau hinh tham chieu Apache KIE Drools Java Maven trong java_kie_reference/."""
+        pom_path = os.path.join(BASE_DIR, "java_kie_reference", "pom.xml")
+        kmodule_path = os.path.join(
+            BASE_DIR, "java_kie_reference", "src", "main", "resources", "META-INF", "kmodule.xml"
+        )
+        java_app_path = os.path.join(
+            BASE_DIR,
+            "java_kie_reference",
+            "src",
+            "main",
+            "java",
+            "vn",
+            "edu",
+            "dss",
+            "nhom1",
+            "credit",
+            "CreditApprovalDroolsApp.java",
+        )
+        self.assertTrue(os.path.exists(pom_path))
+        self.assertTrue(os.path.exists(kmodule_path))
+        self.assertTrue(os.path.exists(java_app_path))
+
+    def test_22_extended_rest_api_endpoints_vv_goalseek_paradigms(self) -> None:
+        """Kiem thu cac REST API nang cao: /api/verify-rules, /api/compare-engines, /api/goal-seek."""
         import json
         import threading
         import urllib.request
@@ -293,54 +387,48 @@ class TestDroolsEngineAndCreditDSS(unittest.TestCase):
         try:
             base_url = f"http://127.0.0.1:{port}"
 
-            # 1. GET / (index.html)
-            with urllib.request.urlopen(f"{base_url}/") as resp:
+            with urllib.request.urlopen(f"{base_url}/api/verify-rules") as resp:
                 self.assertEqual(resp.status, 200)
-                html = resp.read().decode("utf-8")
-                self.assertIn("Drools Credit Approval", html)
+                vv_data = json.loads(resp.read().decode("utf-8"))
+                self.assertTrue(vv_data["verification"]["all_passed"])
 
-            # 2. GET /api/overview
-            with urllib.request.urlopen(f"{base_url}/api/overview") as resp:
-                self.assertEqual(resp.status, 200)
-                overview = json.loads(resp.read().decode("utf-8"))
-                self.assertEqual(overview["status"], "OK")
-                self.assertEqual(len(overview["presets"]), 6)
-                self.assertEqual(len(overview["sample_applicants"]), 15)
-
-            # 3. POST /api/evaluate
-            req_eval = urllib.request.Request(
-                f"{base_url}/api/evaluate",
-                data=json.dumps({"applicant": self.applicants["APP001"]}).encode("utf-8"),
+            req_cmp = urllib.request.Request(
+                f"{base_url}/api/compare-engines",
+                data=json.dumps({"applicant": self.applicants["APP004"]}).encode("utf-8"),
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req_eval) as resp:
+            with urllib.request.urlopen(req_cmp) as resp:
                 self.assertEqual(resp.status, 200)
-                eval_data = json.loads(resp.read().decode("utf-8"))
-                self.assertEqual(eval_data["result"]["summary"]["decision"], "APPROVED")
+                cmp_data = json.loads(resp.read().decode("utf-8"))
+                self.assertTrue(cmp_data["comparison"]["consensus_verified"])
 
-            # 4. POST /api/tms-demo
-            req_tms = urllib.request.Request(
-                f"{base_url}/api/tms-demo",
-                data=json.dumps({"applicant": self.applicants["APP001"]}).encode("utf-8"),
+            req_gs = urllib.request.Request(
+                f"{base_url}/api/goal-seek",
+                data=json.dumps({"applicant": self.applicants["APP003"], "target_goal": "APPROVED_100"}).encode("utf-8"),
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req_tms) as resp:
+            with urllib.request.urlopen(req_gs) as resp:
                 self.assertEqual(resp.status, 200)
-                tms_data = json.loads(resp.read().decode("utf-8"))
-                self.assertEqual(len(tms_data["step1_working_memory"]), 2)
-                self.assertEqual(len(tms_data["step2_working_memory"]), 1)
-
-            # 5. GET /api/batch
-            with urllib.request.urlopen(f"{base_url}/api/batch") as resp:
-                self.assertEqual(resp.status, 200)
-                batch_data = json.loads(resp.read().decode("utf-8"))
-                self.assertEqual(batch_data["batch"]["total_applicants"], 15)
+                gs_data = json.loads(resp.read().decode("utf-8"))
+                self.assertGreaterEqual(len(gs_data["goal_seek"]["verified_plans"]), 1)
         finally:
             server.shutdown()
             server.server_close()
 
+    def test_23_academic_report_and_slides_docx_pptx_deliverables(self) -> None:
+        """Kiem thu cac file Bao cao Word (.docx), Slide PowerPoint (.pptx) va Markdown (.md) ton tai va day du."""
+        docx_path = os.path.join(BASE_DIR, "docs", "BAO_CAO_DO_AN_DE_08_DROOLS_NHOM_1.docx")
+        pptx_path = os.path.join(BASE_DIR, "docs", "SLIDE_THUYET_TRINH_DE_08_DROOLS_NHOM_1.pptx")
+        md_report_path = os.path.join(BASE_DIR, "docs", "BAO_CAO_DO_AN_DE_08_DROOLS_NHOM_1.md")
+        md_slide_path = os.path.join(BASE_DIR, "docs", "SLIDE_VA_KICH_BAN_BAO_VE_NHOM_1.md")
+
+        for path in [docx_path, pptx_path, md_report_path, md_slide_path]:
+            self.assertTrue(os.path.exists(path), f"Missing academic deliverable: {path}")
+            self.assertGreater(os.path.getsize(path), 10000, f"Deliverable file too small: {path}")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

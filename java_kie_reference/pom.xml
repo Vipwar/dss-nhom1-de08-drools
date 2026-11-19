@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>vn.edu.dss.nhom1</groupId>
+    <artifactId>credit-approval-drools-dss</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>Credit Approval &amp; Loan Pricing DSS - Apache KIE Drools Reference (Nhom 1 - De 08)</name>
+    <description>
+        Cau hinh Maven Java Apache KIE Drools 8.44.0.Final tham chieu, su dung chung tap luat
+        rules/credit_approval.drl voi bo may Python Drools DSS Engine cua Nhom 1.
+    </description>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <drools.version>8.44.0.Final</drools.version>
+    </properties>
+
+    <dependencies>
+        <!-- Apache KIE / Red Hat Drools Core & Compiler (PHREAK Engine) -->
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-engine</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-MVEL</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-decisiontables</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+    </dependencies>
+</project>

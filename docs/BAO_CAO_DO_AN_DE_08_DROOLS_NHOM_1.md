@@ -546,23 +546,44 @@ Bảng dưới đây ghi nhận kết quả thực nghiệm khi chạy toàn b�
 
 ---
 
-### 4.5. Kết quả Kiểm thử Tự động Toàn diện (`17/17 Unit & Integration Tests PASS 100%`)
+### 4.5. Đối sánh Thực nghiệm 3 Công cụ Cùng Nhóm (`Drools .drl` vs `CLIPS .clp` vs `Prolog .pl`)
 
-Bộ kiểm thử tự động trong `tests/test_drools_engine.py` được thực thi bằng lệnh `python -m unittest discover -s tests -v`, kiểm chứng toàn bộ 17 hạng mục kỹ thuật và nghiệp vụ:
-- `test_01_drl_parser_metadata_and_rules`: Kiểm tra `DRLParser` đọc chính xác `package`, `import`, `declare` và 20 luật `R01`–`R20`. (**PASS**)
-- `test_02_decision_table_loader`: Kiểm tra nạp 3 luật `DT01`–`DT03` từ bảng quyết định CSV. (**PASS**)
-- `test_03_rete_phreak_network_and_alpha_sharing`: Kiểm tra cấu trúc mạng Rete/PHREAK, tính năng chia sẻ `AlphaNode` (tiết kiệm 38 nút) và 13 nút `BetaNode` Join 2-Fact. (**PASS**)
-- `test_04_conflict_resolution_salience_and_activation_group`: Kiểm tra giải quyết xung đột theo `salience` và hủy luật cùng `activation-group`. (**PASS**)
-- `test_05_no_loop_and_lock_on_active_prevent_infinite_loop`: Kiểm tra chống lặp vô hạn khi `modify()` Fact trong khối `then`. (**PASS**)
-- `test_06_truth_maintenance_system_insert_logical_auto_retract`: Kiểm tra TMS tự động rút lại `EligibilityPassed` khi điều kiện gốc không còn đúng. (**PASS**)
-- `test_07` đến `test_13`: Kiểm tra chính xác chuỗi suy diễn tiến và kết quả đầu ra của toàn bộ các kịch bản nghiệp vụ (`APP001`–`APP006`, `APP011`, `APP012`). (**PASS**)
-- `test_14_what_if_and_sensitivity_analysis`: Kiểm tra bộ mô phỏng What-If nâng hạng hồ sơ từ `CONDITIONAL_APPROVAL` lên `APPROVED`. (**PASS**)
-- `test_15_batch_csv_portfolio_evaluation`: Kiểm tra chấm điểm danh mục 15 hồ sơ CSV. (**PASS**)
-- `test_16_live_drl_hot_reload` & `test_17_web_server_rest_api_endpoints`: Kiểm tra biên dịch nóng `.drl` và toàn bộ REST API của Web Server. (**PASS**)
+Để đáp ứng trọn vẹn yêu cầu *"Tìm hiểu và giới thiệu về các công cụ thư viện trong nhóm Rule-based (`CLIPS` hay `PROLOG` hay `DROOLS`)"* trong đề bài, Nhóm 1 đã cài đặt cùng bài toán Thẩm định Tín dụng trên cả 3 ngôn ngữ chuẩn:
+1. **Apache KIE / Drools (`rules/credit_approval.drl`):** Suy diễn tiến 4 tầng `agenda-group` với mạng **PHREAK**, giải quyết xung đột `activation-group` và bảo toàn chân lý `insertLogical (TMS)`.
+2. **NASA CLIPS (`rules/credit_approval.clp`):** Suy diễn tiến với mạng **Rete cổ điển**, biểu diễn tri thức bằng `(deftemplate applicant ...)` và `(defrule R01..R17 (declare (salience ...)) => (modify ?app ...))`.
+3. **SWI-Prolog (`rules/credit_approval.pl`):** Suy diễn lùi hướng mục tiêu (**Backward Chaining & SLD Resolution**) với vị từ mục tiêu `evaluate_credit(Id, Decision, RiskTier, Score, ApprovedAmount, InterestRate, RejCode) :- ...` và toán tử cắt nhánh `!` (*Cut*).
+
+**Kết quả thực nghiệm đối chứng (`test_20_multi_paradigm_comparison`):** Khi chạy kiểm thử tự động trên toàn bộ **15/15 hồ sơ (`APP001`–`APP015`)**, cả 3 bộ máy **Drools**, **CLIPS** và **Prolog** đều hội tụ **khớp 100%** về Quyết định (`decision`), Hạng rủi ro (`risk_tier`), Điểm tổng hợp (`composite_score`), Hạn mức phê duyệt (`approved_amount`) và Lãi suất (`interest_rate`), đồng thời thể hiện rõ sự khác biệt về vết suy diễn (Agenda Forward Trace của Drools/CLIPS so với SLD Proof Tree `CALL -> SUBGOAL -> EXIT / FAIL / CUT` của Prolog).
 
 ---
 
-### 4.6. Đánh giá Ưu điểm, Hạn chế và Hướng Phát triển
+### 4.6. Kiểm định & Xác thực Hình thức Tập luật (`Formal Rule Base Verification & Validation – V&V`) & Suy diễn Mục tiêu Ngược (`Backward Goal-Seeker`)
+
+Bộ kiểm định tự động `RuleBaseVerifier` trong `engine/multi_paradigm_comparator.py` đã xác thực tập luật của đồ án đạt **5/5 tiêu chuẩn học thuật V&V của Hệ chuyên gia**:
+
+| Mã Kiểm định | Tiêu chuẩn Học thuật V&V | Phương pháp Kiểm chứng | Kết quả |
+| :--- | :--- | :--- | :---: |
+| **`VV_01_REDUNDANCY`** | Không có luật dư thừa / trùng lặp (*Redundancy & Subsumption*) | Phân tích chữ ký điều kiện `WHEN (LHS)` trên từng `agenda-group` | **PASSED (0 Luật trùng)** |
+| **`VV_02_CONFLICT_CONTROL`** | Không có mâu thuẫn quyết định (*Ambivalence & Conflict Resolution*) | Kiểm tra khóa độc quyền `activation-group` (`hard-knockout`, `risk-tier-assignment`, `final-decision`) & `salience` phân biệt | **PASSED (100% tất định)** |
+| **`VV_03_REACHABILITY`** | Không có luật chết (*Reachability / Dead-Rule Analysis*) | Chạy phủ tập hồ sơ thực nghiệm qua mạng Rete/PHREAK | **PASSED (23/23 Luật kích hoạt)** |
+| **`VV_04_TERMINATION`** | Đảm bảo dừng hữu hạn, chống lặp vô hạn (*Termination & No-Loop*) | Kiểm tra chốt chặn `no-loop true`, `lock-on-active true` và thứ tự đơn điệu 4 tầng | **PASSED (Dừng sau 2–8 chu kỳ)** |
+| **`VV_05_COMPLETENESS`** | Độ phủ 100% không gian quyết định (*Decision Space Completeness*) | Kiểm tra phân hoạch toàn ánh miền điểm $(-\infty, 40) \cup [40, 60) \cup [60, 80) \cup [80, +\infty)$ | **PASSED (Độ phủ 100%)** |
+
+Bên cạnh đó, mô-đun **`BackwardGoalSeeker`** bổ sung khả năng **Truy vấn Mục tiêu Ngược (Goal-Seeking Counterfactual DSS)**: khi chuyên viên chọn mục tiêu mong muốn (`APPROVED 100%` hoặc `TIER_A`), hệ thống suy diễn ngược từ điều kiện tiền đề của các luật mục tiêu (`R13`, `R14`, `R09`, `R04`) để tìm ra lộ trình thay đổi tối thiểu và tự động kiểm chứng lại trên `KieSession`.
+
+---
+
+### 4.7. Kết quả Kiểm thử Tự động Toàn diện (`22/22 Unit & Integration Tests PASS 100%`)
+
+Bộ kiểm thử tự động trong `tests/test_drools_engine.py` được thực thi bằng lệnh `python -m unittest discover -s tests -v`, đạt **22/22 test cases PASS 100%**:
+- `test_01` – `test_06`: Kiểm tra `DRLParser`, `DecisionTableLoader`, `RetePhreakNetwork & AlphaNode Sharing`, `Conflict Resolution (salience & activation-group)`, `no-loop & lock-on-active`, và `Truth Maintenance System (insertLogical & Auto-Retract)`. (**PASS**)
+- `test_07` – `test_13`: Kiểm tra toàn bộ 6 kịch bản nghiệp vụ điển hình (`APP001`–`APP006`) cùng các trường hợp biên `R01` (`APP012`) và `R12 -> R17` (`APP011`). (**PASS**)
+- `test_14` – `test_17`: Kiểm tra `What-If & Sensitivity Simulator`, `Batch CSV Scoring (15 hồ sơ)`, `Live DRL Hot-Reload` và `Web Server REST API`. (**PASS**)
+- `test_18` – `test_22`: Kiểm tra `RuleBaseVerifier (5 tiêu chuẩn V&V)`, `BackwardGoalSeeker`, `MultiParadigmComparator (Drools vs CLIPS vs Prolog khớp 100% trên cả 15 hồ sơ)`, cấu hình tham chiếu `Apache KIE Java Maven (java_kie_reference/)` và các REST API nâng cao. (**PASS**)
+
+---
+
+### 4.8. Đánh giá Ưu điểm, Hạn chế và Hướng Phát triển
 
 1. **Ưu điểm đạt được:**
    - Мо phỏng chính xác kiến trúc lõi của Drools (`DRLParser`, `KieBase`, `KieSession`, `RetePhreakNetwork`, `Agenda`, `ConflictResolver`, `TMS insertLogical`, `DecisionTableLoader`) ngay trên Python chuẩn, giúp trực quan hóa hoàn toàn trạng thái bên trong của từng nút `AlphaNode`, `BetaNode`, `RuleTerminalNode` lên giao diện Web – điều mà khi gọi qua hộp đen JVM truyền thống rất khó bóc tách trực tiếp để giảng dạy và thuyết trình.

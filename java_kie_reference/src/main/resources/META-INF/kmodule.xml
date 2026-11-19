@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kmodule xmlns="http://www.drools.org/xsd/kmodule">
+    <!-- Cau hinh KieBase va KieSession chuan Apache KIE / Drools -->
+    <kbase name="CreditApprovalKBase" packages="vn.edu.dss.nhom1.credit" default="true">
+        <ksession name="CreditApprovalKSession" type="stateful" default="true"/>
+    </kbase>
+</kmodule>

@@ -22,21 +22,35 @@ import traceback
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 from engine.drools_engine import CreditApprovalDSS, KieBase
+from engine.multi_paradigm_comparator import (
+    BackwardGoalSeeker,
+    MultiParadigmComparator,
+    RuleBaseVerifier,
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DRL_PATH = os.path.join(BASE_DIR, "rules", "credit_approval.drl")
+CLIPS_PATH = os.path.join(BASE_DIR, "rules", "credit_approval.clp")
+PROLOG_PATH = os.path.join(BASE_DIR, "rules", "credit_approval.pl")
 DT_CSV_PATH = os.path.join(BASE_DIR, "rules", "decision_table_rules.csv")
 SAMPLE_CSV_PATH = os.path.join(BASE_DIR, "data", "sample_applicants.csv")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-# Khoi tao dich vu Drools DSS toan cuc
+# Khoi tao dich vu Drools DSS toan cuc & Bo doi sanh da cong cu (Drools vs CLIPS vs Prolog)
 DSS_SERVICE = CreditApprovalDSS(
     drl_path=DRL_PATH,
     decision_table_csv=DT_CSV_PATH,
     sample_csv_path=SAMPLE_CSV_PATH,
+)
+RULE_VERIFIER = RuleBaseVerifier(DSS_SERVICE)
+GOAL_SEEKER = BackwardGoalSeeker(DSS_SERVICE)
+PARADIGM_COMPARATOR = MultiParadigmComparator(
+    dss=DSS_SERVICE,
+    clips_path=CLIPS_PATH,
+    prolog_path=PROLOG_PATH,
 )
 
 with open(DRL_PATH, "r", encoding="utf-8") as _f:
@@ -54,7 +68,6 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
     """HTTP Request Handler phuc vu Giao dien Dashboard va REST API JSON."""
 
     def log_message(self, fmt: str, *args: Any) -> None:
-        # Ghi log gon gang tren terminal
         print(f"[Drools-DSS API] {self.address_string()} - {fmt % args}")
 
     def _send_json(self, data: Any, status: int = HTTPStatus.OK) -> None:
@@ -91,6 +104,15 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
                 presets = DSS_SERVICE.get_preset_scenarios()
                 all_applicants = DSS_SERVICE.load_sample_applicants()
                 default_eval = DSS_SERVICE.evaluate_applicant(presets[0]) if presets else {}
+                verification = RULE_VERIFIER.verify_all()
+                comparison = (
+                    PARADIGM_COMPARATOR.compare_on_applicant(presets[0]) if presets else {}
+                )
+                goal_seek_default = (
+                    GOAL_SEEKER.seek_goal(presets[2], "APPROVED_100")
+                    if len(presets) > 2
+                    else {}
+                )
                 rules_meta = [
                     {
                         "rule_code": r.rule_code,
@@ -112,7 +134,7 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
                         "project": {
                             "course": "Hệ thống Hỗ trợ Ra quyết định (Decision Support Systems - DSS)",
                             "group": "Nhóm 1",
-                            "topic": "Đề 08 – DROOLS (Nhóm Rule-Based DSS)",
+                            "topic": "Đề 08 – DROOLS (Nhóm Rule-Based: Drools vs CLIPS vs Prolog)",
                             "problem": "Hệ thống Hỗ trợ Ra quyết định Thẩm định Tín dụng, Xếp hạng Rủi ro & Định giá Khoản vay Cá nhân",
                             "package_name": DSS_SERVICE.kie_base.package_name,
                             "total_rules": len(DSS_SERVICE.kie_base.rules),
@@ -122,7 +144,12 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
                         "rules_metadata": rules_meta,
                         "decision_table_rows": load_decision_table_rows(),
                         "drl_source": DSS_SERVICE.active_drl_text,
+                        "clips_source": PARADIGM_COMPARATOR.clips_source,
+                        "prolog_source": PARADIGM_COMPARATOR.prolog_source,
                         "initial_evaluation": default_eval,
+                        "rule_verification": verification,
+                        "initial_comparison": comparison,
+                        "initial_goal_seek": goal_seek_default,
                     }
                 )
                 return
@@ -132,12 +159,19 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"status": "OK", "batch": batch_res})
                 return
 
+            if path == "/api/verify-rules":
+                verification = RULE_VERIFIER.verify_all()
+                self._send_json({"status": "OK", "verification": verification})
+                return
+
             if path == "/api/rules":
                 self._send_json(
                     {
                         "status": "OK",
                         "drl_source": DSS_SERVICE.active_drl_text,
                         "default_drl_source": DEFAULT_DRL_TEXT,
+                        "clips_source": PARADIGM_COMPARATOR.clips_source,
+                        "prolog_source": PARADIGM_COMPARATOR.prolog_source,
                         "total_rules": len(DSS_SERVICE.kie_base.rules),
                         "decision_table_rows": load_decision_table_rows(),
                     }
@@ -179,6 +213,19 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"status": "OK", "batch": batch_res})
                 return
 
+            if path == "/api/compare-engines":
+                applicant_data = payload.get("applicant") or DSS_SERVICE.get_preset_scenarios()[0]
+                comparison = PARADIGM_COMPARATOR.compare_on_applicant(applicant_data)
+                self._send_json({"status": "OK", "comparison": comparison})
+                return
+
+            if path == "/api/goal-seek":
+                applicant_data = payload.get("applicant") or DSS_SERVICE.get_preset_scenarios()[2]
+                target_goal = str(payload.get("target_goal", "APPROVED_100"))
+                plan_res = GOAL_SEEKER.seek_goal(applicant_data, target_goal)
+                self._send_json({"status": "OK", "goal_seek": plan_res})
+                return
+
             if path == "/api/rules/compile":
                 reset_default = bool(payload.get("reset_default", False))
                 drl_text = DEFAULT_DRL_TEXT if reset_default else str(payload.get("drl_source", ""))
@@ -202,14 +249,12 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
                 return
 
             if path == "/api/tms-demo":
-                # Minh hoa truc quan Truth Maintenance System (insertLogical & Auto-Retract)
                 kb = KieBase(drl_text=DSS_SERVICE.active_drl_text)
                 session = kb.new_kie_session()
                 applicant_input = payload.get("applicant") or DSS_SERVICE.get_preset_scenarios()[0]
                 fact = DSS_SERVICE.build_applicant_fact(applicant_input)
                 handle = session.insert(fact)
 
-                # Buoc 1: Chay Tang 1 -> R04 sinh Logical Fact EligibilityPassed
                 session.fire_all_rules(agenda_pipeline=["1-eligibility"])
                 wm_after_step1 = [
                     {
@@ -221,7 +266,6 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
                     for h in session.handles.values()
                 ]
 
-                # Buoc 2: Cap nhat Fact goc (phat hien cic_bad_debt = True) -> TMS tu dong rut lai EligibilityPassed
                 session.modify(handle, cic_bad_debt=True)
                 wm_after_step2 = [
                     {
@@ -294,6 +338,7 @@ def run_server(host: str = "0.0.0.0", port: int = 8000) -> None:
     print("  Bài toán: Thẩm định Tín dụng, Xếp hạng Rủi ro & Định giá Khoản vay Cá nhân")
     print("-" * 78)
     print(f"  * KieBase đã nạp thành công: {len(DSS_SERVICE.kie_base.rules)} luật (.drl + Decision Table)")
+    print(f"  * Đối sánh đa mô hình: Drools (.drl) vs CLIPS (.clp) vs Prolog (.pl)")
     print(f"  * Tập dữ liệu mẫu: {len(DSS_SERVICE.load_sample_applicants())} hồ sơ tín dụng (data/sample_applicants.csv)")
     print(f"  * Web Dashboard đang chạy tại: http://localhost:{port}")
     print("=" * 78)

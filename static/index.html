@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Drools Credit Approval & Loan Pricing DSS | Nhóm 1 – Đề 08</title>
-  <meta name="description" content="Hệ thống Hỗ trợ Ra quyết định Thẩm định Tín dụng, Xếp hạng Rủi ro & Định giá Khoản vay Cá nhân sử dụng kiến trúc Drools Rule Engine (Rete / PHREAK, Forward Chaining, Agenda Conflict Resolution, Truth Maintenance System)." />
+  <meta name="description" content="Hệ thống Hỗ trợ Ra quyết định Thẩm định Tín dụng, Xếp hạng Rủi ro & Định giá Khoản vay Cá nhân sử dụng kiến trúc Drools Rule Engine (Rete / PHREAK, Forward Chaining, Agenda Conflict Resolution, Truth Maintenance System) và đối sánh CLIPS, Prolog." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -28,14 +28,14 @@
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <span class="px-2.5 py-0.5 rounded-md bg-sky-500/20 border border-sky-400/30 text-sky-300 text-xs font-bold tracking-wide">
-                ĐỒ ÁN CUỐI KỲ DSS • NHÓM 1 • ĐỀ 08: DROOLS
+                ĐỒ ÁN CUỐI KỲ DSS • NHÓM 1 • ĐỀ 08: DROOLS (NHÓM RULE-BASED)
               </span>
               <span id="headerEngineBadge" class="px-2.5 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-semibold font-mono">
-                KieBase: 23 Rules Active
+                KieBase: 23 Rules Verified (V&V 100%)
               </span>
             </div>
             <h1 class="text-lg sm:text-xl font-extrabold text-white tracking-tight mt-1">
-              Hệ thống Hỗ trợ Ra quyết định Thẩm định Tín dụng & Định giá Khoản vay (Drools Rule-Based DSS)
+              Hệ thống Hỗ trợ Ra quyết định Thẩm định Tín dụng & Định giá Khoản vay (Drools • CLIPS • Prolog)
             </h1>
           </div>
         </div>
@@ -44,8 +44,11 @@
           <button id="btnToggleAllView" onclick="toggleFullPageMode()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-semibold transition">
             Chế độ: Xem theo Tab / Toàn trang
           </button>
-          <button onclick="switchTab('batch')" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition shadow">
-            Chấm điểm 15 Hồ sơ CSV
+          <button onclick="exportCreditMemoReport()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow">
+            🖨️ Xuất Tờ trình Thẩm định
+          </button>
+          <button onclick="switchTab('paradigms')" class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition shadow">
+            Đối sánh Drools vs CLIPS vs Prolog
           </button>
         </div>
       </div>
@@ -63,6 +66,9 @@
         </button>
         <button id="tabBtn-studio" class="nav-tab-btn" onclick="switchTab('studio')">
           <span>4. Live DRL Studio & Bảng Quyết định (Khu vực 6A)</span>
+        </button>
+        <button id="tabBtn-paradigms" class="nav-tab-btn" onclick="switchTab('paradigms')">
+          <span>5. Đối sánh Drools/CLIPS/Prolog • Goal-Seeking & Kiểm định V&V</span>
         </button>
       </nav>
     </div>
@@ -179,9 +185,14 @@
                 <button type="submit" id="btnFireRules" class="btn-primary w-full">
                   <span>Kích hoạt Suy diễn Drools (`session.fireAllRules()`)</span>
                 </button>
-                <button type="button" onclick="syncCurrentToWhatIfAndOpen()" class="btn-secondary w-full">
-                  <span>Đưa hồ sơ này sang Phòng Thí nghiệm What-If</span>
-                </button>
+                <div class="grid grid-cols-2 gap-2">
+                  <button type="button" onclick="syncCurrentToWhatIfAndOpen()" class="btn-secondary w-full !text-[11px]">
+                    <span>Mô phỏng What-If</span>
+                  </button>
+                  <button type="button" onclick="syncCurrentToParadigmsAndOpen()" class="btn-secondary w-full !text-[11px]">
+                    <span>So sánh CLIPS & Prolog</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -201,13 +212,16 @@
                 Kết quả Hỗ trợ Ra quyết định, Định giá Khoản vay & Đánh giá Đa chiều
               </h3>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <span id="execCyclesBadge" class="px-2.5 py-1 rounded-md bg-slate-100 text-slate-800 font-mono text-xs font-bold">
                 8 Chu kỳ Suy diễn
               </span>
               <span id="execTierBadge" class="badge-pill tier-TIER_A">
                 TIER_A
               </span>
+              <button type="button" onclick="exportCreditMemoReport()" class="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold">
+                🖨️ In Tờ trình
+              </button>
             </div>
           </div>
 
@@ -680,6 +694,109 @@
       </div>
     </section>
 
+    <!-- ==================================================================
+         TAB 5: ĐỐI SÁNH ĐA CÔNG CỤ (DROOLS vs CLIPS vs PROLOG) • GOAL-SEEKING & V&V
+         ================================================================== -->
+    <section id="tabPanel-paradigms" class="hidden space-y-6">
+
+      <!-- PHẦN 5A: ĐỐI SÁNH THỰC NGHIỆM 3 CÔNG CỤ TRONG NHÓM RULE-BASED -->
+      <div class="dss-card p-5 space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-slate-200 pb-3">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-sky-700">
+              Phân hệ Mở rộng 1 • Multi-Paradigm Rule-Based Comparison
+            </span>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">
+              Đối sánh Thực nghiệm 3 Công cụ Nhóm Rule-Based: DROOLS (`.drl`) vs CLIPS (`.clp`) vs PROLOG (`.pl`)
+            </h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="paradigmApplicantSelect" onchange="runMultiParadigmComparison(this.value)" class="form-input !w-auto !py-1.5 text-xs font-semibold">
+            </select>
+            <button type="button" onclick="runMultiParadigmComparison()" class="btn-primary !py-1.5 text-xs">
+              Chạy Đối sánh 3 Bộ máy
+            </button>
+          </div>
+        </div>
+
+        <div id="paradigmConsensusBanner" class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs font-semibold">
+          <!-- Render động từ JS -->
+        </div>
+
+        <div id="paradigmThreeColumnsBox" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <!-- Render 3 cột Drools vs CLIPS vs Prolog từ JS -->
+        </div>
+
+        <!-- Xem mã nguồn đối chứng .drl vs .clp vs .pl -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-900 text-slate-200">
+            <div class="text-xs font-bold uppercase text-amber-300 mb-2">
+              Mã nguồn Luật NASA CLIPS (`rules/credit_approval.clp` – Forward Chaining Classic Rete)
+            </div>
+            <pre id="clipsSourcePreview" class="text-[11px] font-mono overflow-x-auto max-h-60 text-slate-300"></pre>
+          </div>
+
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-900 text-slate-200">
+            <div class="text-xs font-bold uppercase text-teal-300 mb-2">
+              Mã nguồn Tri thức SWI-Prolog (`rules/credit_approval.pl` – Backward Chaining SLD Resolution)
+            </div>
+            <pre id="prologSourcePreview" class="text-[11px] font-mono overflow-x-auto max-h-60 text-slate-300"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHẦN 5B: TRUY VẤN MỤC TIÊU NGƯỢC (BACKWARD CHAINING GOAL-SEEKER DSS) -->
+      <div class="dss-card p-5 space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-slate-200 pb-3">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-sky-700">
+              Phân hệ Mở rộng 2 • Backward Chaining Goal-Seeker & Counterfactual DSS
+            </span>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">
+              Truy vấn Mục tiêu Ngược (Goal-Seeking): Tìm Phương án Tối thiểu để Hồ sơ Đạt Phê duyệt 100%
+            </h2>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="goalSeekApplicantSelect" onchange="runGoalSeekingQuery()" class="form-input !w-auto !py-1.5 text-xs font-semibold">
+            </select>
+            <select id="goalSeekTargetSelect" onchange="runGoalSeekingQuery()" class="form-input !w-auto !py-1.5 text-xs font-semibold">
+              <option value="APPROVED_100">Mục tiêu: Đạt APPROVED (Duyệt 100% hạn mức)</option>
+              <option value="TIER_A">Mục tiêu: Đạt Hạng TIER_A (Lãi suất ưu đãi 6.8%–7.5%)</option>
+            </select>
+            <button type="button" onclick="runGoalSeekingQuery()" class="btn-primary !py-1.5 text-xs">
+              Suy diễn Ngược Tìm Lộ trình
+            </button>
+          </div>
+        </div>
+
+        <div id="goalSeekingResultBox" class="space-y-3 text-xs">
+          <!-- Render động từ JS -->
+        </div>
+      </div>
+
+      <!-- PHẦN 5C: KIỂM ĐỊNH & XÁC THỰC HÌNH THỨC TẬP LUẬT (FORMAL RULE BASE V&V) -->
+      <div class="dss-card p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-3">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-sky-700">
+              Phân hệ Mở rộng 3 • Formal Rule Base Verification & Validation (V&V)
+            </span>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">
+              Báo cáo Kiểm định Tính Nhất quán, Đầy đủ & Dừng Hữu hạn của Tập Luật Drools (5 Tiêu chuẩn Học thuật)
+            </h2>
+          </div>
+          <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 font-bold text-xs">
+            ✓ 5/5 Tiêu chuẩn V&V Đạt 100%
+          </span>
+        </div>
+
+        <div id="ruleVerificationMatrixBox" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Render động từ JS -->
+        </div>
+      </div>
+
+    </section>
+
   </main>
 
   <!-- FOOTER -->
@@ -689,7 +806,7 @@
         <strong class="text-white">Đồ án Cuối kỳ Môn Hệ thống Hỗ trợ Ra quyết định (DSS)</strong> • Nhóm 1 • Đề 08: DROOLS (Nhóm Rule-Based)
       </div>
       <div class="font-mono text-slate-400">
-        Apache KIE / Drools DRL Architecture • Rete / PHREAK • Forward Chaining • Truth Maintenance System
+        Apache KIE / Drools DRL • CLIPS • Prolog • Rete / PHREAK • Forward & Backward Chaining • TMS • V&V
       </div>
     </div>
   </footer>

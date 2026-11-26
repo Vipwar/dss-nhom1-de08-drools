@@ -1,4 +1,4 @@
-name: Drools DSS Automated Verification & Unit Tests (24/24)
+name: Drools DSS Automated Verification & Unit Tests (28/28)
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Run 24 Unit & Integration Tests (DRL, Rete/PHREAK, TMS, V&V, CLIPS/Prolog, API)
+      - name: Run 28 Unit, Security, Basel III & Fuzzing Tests (DRL, Rete/PHREAK, TMS, V&V, CLIPS/Prolog, API)
         run: python -m unittest discover -s tests -v
 
       - name: Run CLI Walkthrough & Formal Knowledge Base V&V Verification

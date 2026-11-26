@@ -415,6 +415,72 @@ code, pre, .font-mono {
   background: #e0f2fe !important;
 }
 
+/* Basel III Quantitative Risk Strip & Risk Migration Matrix */
+.basel-strip {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #cbd5e1;
+  border-radius: 0.85rem;
+  padding: 0.9rem 1rem;
+}
+
+.basel-metric-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.65rem;
+  padding: 0.7rem 0.85rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.migration-matrix-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 4px;
+  font-size: 0.78rem;
+}
+
+.migration-matrix-table th {
+  background: #0f172a;
+  color: #f8fafc;
+  font-weight: 700;
+  padding: 0.55rem 0.6rem;
+  border-radius: 0.4rem;
+  text-align: center;
+  font-size: 0.72rem;
+}
+
+.migration-matrix-table td {
+  padding: 0.6rem 0.5rem;
+  border-radius: 0.45rem;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  border: 1px solid #e2e8f0;
+}
+
+.matrix-cell-diag {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0 !important;
+}
+
+.matrix-cell-downgrade {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fda4af !important;
+}
+
+.matrix-cell-upgrade {
+  background: #f0f9ff;
+  color: #0369a1;
+  border-color: #bae6fd !important;
+}
+
+.matrix-cell-zero {
+  background: #f8fafc;
+  color: #94a3b8;
+  font-weight: 500 !important;
+}
+
 @media (max-width: 1024px) {
   .rete-stage-grid {
     grid-template-columns: repeat(2, minmax(240px, 1fr));

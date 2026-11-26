@@ -6,6 +6,9 @@ va Bo Doi sanh Da Cong cu Rule-Based (Drools vs CLIPS vs Prolog).
 """
 
 from .drools_engine import (
+    UnsafeDRLExpressionError,
+    SafeASTEvaluator,
+    StrictInputSanitizer,
     Fact,
     FactHandle,
     AlphaNode,
@@ -33,6 +36,9 @@ from .multi_paradigm_comparator import (
 )
 
 __all__ = [
+    "UnsafeDRLExpressionError",
+    "SafeASTEvaluator",
+    "StrictInputSanitizer",
     "Fact",
     "FactHandle",
     "AlphaNode",

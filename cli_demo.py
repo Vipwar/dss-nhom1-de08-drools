@@ -64,6 +64,10 @@ def run_cli_walkthrough() -> None:
         f"    - AlphaNode Sharing    : Gom {rstats['total_raw_alpha_constraints']} điều kiện đơn -> "
         f"{rstats['unique_alpha_nodes']} AlphaNode duy nhất (Tiết kiệm {rstats['alpha_nodes_saved_by_sharing']} phép lọc)"
     )
+    print(
+        f"    - Alpha Memory Cache   : {rstats['cache_hits']} Cache Hits ({rstats['cache_hit_rate_percent']}%) "
+        f"theo (handle_id, fact.recency) + SafeASTEvaluator Sandbox"
+    )
     print(f"    - BetaNode 2-Fact Joins: {rstats['multi_fact_beta_joins']}/{rstats['total_beta_nodes']} nút kết hợp (EligibilityPassed ⋈ Applicant)")
 
     # 2. Kiem dinh hinh thuc tap luat (Formal Rule Base V&V)
@@ -73,23 +77,27 @@ def run_cli_walkthrough() -> None:
         status_icon = "PASS" if chk["passed"] else "FAIL"
         print(f"    - [{status_icon}] {chk['check_id']} ({chk['title']}): {chk['status_badge']}")
 
-    # 3. Chay 6 Kich ban Demo Dien hinh
-    print("\n[3] KẾT QUẢ SUY DIỄN TIẾN 4 TẦNG TRÊN 6 KỊCH BẢN ĐIỂN HÌNH:")
-    print("-" * 88)
-    print(f"{'Mã HS':<7} | {'Họ và Tên':<18} | {'Điểm':<6} | {'Hạng':<7} | {'Quyết định':<20} | {'Hạn mức':<9} | {'LS':<5} | {'Chuỗi Luật Kích hoạt'}")
-    print("-" * 88)
+    # 3. Chay 6 Kich ban Demo Dien hinh kem Basel III
+    print("\n[3] KẾT QUẢ SUY DIỄN TIẾN 4 TẦNG & ĐỊNH LƯỢNG BASEL III TRÊN 6 KỊCH BẢN ĐIỂN HÌNH:")
+    print("-" * 108)
+    print(
+        f"{'Mã HS':<7} | {'Họ và Tên':<17} | {'Điểm':<6} | {'Hạng':<6} | {'Quyết định':<20} | "
+        f"{'EAD':<8} | {'PD':<6} | {'EL':<7} | {'RAROC':<7} | {'Chuỗi Luật'}"
+    )
+    print("-" * 108)
     for preset in dss.get_preset_scenarios():
         res = dss.evaluate_applicant(preset)
         app = res["applicant"]
         s = res["summary"]
         rules_str = "->".join(res["engine"]["fired_rules"])
         print(
-            f"{app['applicant_id']:<7} | {app['full_name']:<18} | "
-            f"{s['composite_score']:>3}/100 | {s['risk_tier']:<7} | "
-            f"{s['decision']:<20} | {s['approved_amount']:>6.1f} tr | "
-            f"{s['interest_rate']:>4.1f}% | {rules_str}"
+            f"{app['applicant_id']:<7} | {app['full_name']:<17} | "
+            f"{s['composite_score']:>3}/100 | {s['risk_tier']:<6} | "
+            f"{s['decision']:<20} | {s['ead_amount']:>5.1f}tr | "
+            f"{s['pd_percent']:>5.2f}% | {s['expected_loss']:>5.2f}tr | "
+            f"{s['raroc_percent']:>5.1f}% | {rules_str}"
         )
-    print("-" * 88)
+    print("-" * 108)
 
     # 4. Minh hoa Truth Maintenance System (insertLogical & Auto-Retract)
     print("\n[4] KIỂM CHỨNG HỆ THỐNG BẢO TOÀN CHÂN LÝ (TRUTH MAINTENANCE SYSTEM - insertLogical):")
@@ -125,8 +133,22 @@ def run_cli_walkthrough() -> None:
         print(f"      + Hành động : {'; '.join(plan['actions'])}")
         print(f"      + Kiểm chứng: Đạt {plan['achieved_decision']} ({plan['achieved_tier']}, {plan['achieved_score']}/100, LS {plan['achieved_rate']}%)")
 
+    # 7. Basel III Portfolio Macro Stress-Testing & Risk Migration Matrix
+    stress = dss.run_portfolio_stress_test(income_shock_pct=-20.0, collateral_shock_pct=-25.0, dti_shock_pts=12.0)
+    imp = stress["impact_summary"]
+    print("\n[7] MÔ PHỎNG STRESS-TEST DANH MỤC BASEL III (Cú sốc: Thu nhập -20%, TSĐB -25%, DTI +12đ%):")
+    print(
+        f"    - Tổng hạn mức duyệt : {stress['baseline_portfolio']['total_approved_amount']} tr -> "
+        f"{stress['stressed_portfolio']['total_approved_amount']} tr ({imp['approved_amount_delta']:+.1f} tr)"
+    )
+    print(
+        f"    - Tổng Expected Loss : {stress['baseline_portfolio']['total_expected_loss']:.2f} tr -> "
+        f"{stress['stressed_portfolio']['total_expected_loss']:.2f} tr ({imp['expected_loss_delta']:+.2f} tr)"
+    )
+    print(f"    - Số hồ sơ hạ bậc    : {imp['downgraded_count']}/{stress['total_applicants']} hồ sơ | Ma trận dịch chuyển: {stress['risk_migration_matrix']}")
+
     print("\n" + "=" * 88)
-    print("  HOÀN TẤT DEMO CLI 100% THÀNH CÔNG! (Để mở Web Dashboard, chạy lệnh: python app.py)")
+    print("  HOÀN TẤT DEMO CLI V3 ULTIMATE 100% THÀNH CÔNG! (Để mở Web Dashboard, chạy lệnh: python app.py)")
     print("=" * 88)
 
 

@@ -309,6 +309,63 @@
             </div>
           </div>
 
+          <!-- Basel III Quantitative Credit Risk Indicators (PD, LGD, Expected Loss, RAROC) -->
+          <div id="baselMetricsStrip" class="basel-strip space-y-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-slate-900 text-sky-300 font-mono text-[10px] font-bold uppercase tracking-wider">
+                  Basel III IRB / Standard
+                </span>
+                <span class="text-xs font-bold text-slate-800">
+                  Chỉ số Định lượng Rủi ro Tín dụng & Hiệu suất Vốn (`PD • LGD • Expected Loss • RAROC`)
+                </span>
+              </div>
+              <span class="text-[11px] font-mono text-slate-500">EL = PD × LGD × EAD | CAR Buffer = 10.5% RWA</span>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="basel-metric-card">
+                <div class="text-[11px] font-semibold text-slate-500">PD (Probability of Default)</div>
+                <div id="metricBaselPd" class="text-base sm:text-lg font-extrabold text-slate-900 font-mono mt-0.5">
+                  0.55%
+                </div>
+                <div id="metricBaselPdNote" class="text-[11px] text-emerald-700 font-medium mt-0.5">
+                  Xác suất vỡ nợ 12 tháng
+                </div>
+              </div>
+
+              <div class="basel-metric-card">
+                <div class="text-[11px] font-semibold text-slate-500">LGD (Loss Given Default)</div>
+                <div id="metricBaselLgd" class="text-base sm:text-lg font-extrabold text-slate-900 font-mono mt-0.5">
+                  10.00%
+                </div>
+                <div id="metricBaselEad" class="text-[11px] text-slate-600 font-mono mt-0.5">
+                  EAD: 500.0 triệu
+                </div>
+              </div>
+
+              <div class="basel-metric-card">
+                <div class="text-[11px] font-semibold text-slate-500">Expected Loss (EL)</div>
+                <div id="metricBaselEl" class="text-base sm:text-lg font-extrabold text-amber-700 font-mono mt-0.5">
+                  0.28 triệu
+                </div>
+                <div id="metricBaselRwa" class="text-[11px] text-slate-600 font-mono mt-0.5">
+                  RWA: 175.0 triệu (RW 35%)
+                </div>
+              </div>
+
+              <div class="basel-metric-card">
+                <div class="text-[11px] font-semibold text-slate-500">RAROC (Return on Capital)</div>
+                <div id="metricBaselRaroc" class="text-base sm:text-lg font-extrabold text-teal-700 font-mono mt-0.5">
+                  55.65%
+                </div>
+                <div id="metricBaselEc" class="text-[11px] text-slate-600 font-mono mt-0.5">
+                  Vốn kinh tế EC: 18.38 tr
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Radar Chart (5 Chiều) + Lý giải & Khuyến nghị DSS -->
           <div class="grid grid-cols-1 md:grid-cols-12 gap-5 pt-1">
             <div class="md:col-span-5 p-3.5 rounded-xl border border-slate-200 bg-white flex flex-col justify-between">
@@ -568,35 +625,35 @@
     </section>
 
     <!-- ==================================================================
-         TAB 3: KHU VỰC 6B - CHẤM ĐIỂM DANH MỤC HÀNG LOẠT (BATCH CSV SCORING)
+         TAB 3: KHU VỰC 6B - CHẤM ĐIỂM DANH MỤC HÀNG LOẠT & BASEL III STRESS TESTING
          ================================================================== -->
     <section id="tabPanel-batch" class="hidden space-y-6">
       <div class="dss-card p-5 space-y-5">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-3">
           <div>
             <span class="text-xs font-bold uppercase tracking-wider text-sky-700">
-              Khu vực 6B • Batch Portfolio Scoring (`data/sample_applicants.csv`)
+              Khu vực 6B • Batch Portfolio Scoring (`data/sample_applicants.csv` • Chuẩn CSV RFC 4180)
             </span>
             <h2 class="text-base sm:text-lg font-bold text-slate-900">
-              Chấm điểm Danh mục 15 Hồ sơ Tín dụng Hàng loạt qua Drools Rule Engine
+              Chấm điểm Danh mục 15 Hồ sơ Tín dụng Hàng loạt & Định lượng Basel III qua Drools Rule Engine
             </h2>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <label class="btn-secondary text-xs cursor-pointer">
-              <span>📂 Nạp File CSV Tùy chỉnh</span>
-              <input type="file" accept=".csv" class="hidden" onchange="uploadCustomBatchCsv(event)" />
+              <span>📂 Nạp File CSV Tùy chỉnh (RFC 4180)</span>
+              <input id="inpBatchCsvUpload" type="file" accept=".csv" class="hidden" onchange="uploadCustomBatchCsv(event)" />
             </label>
-            <button type="button" onclick="exportBatchResultsCsv()" class="btn-secondary text-xs">
+            <button type="button" id="btnExportBatchCsv" onclick="exportBatchResultsCsv()" class="btn-secondary text-xs">
               ⬇ Xuất Kết quả ra CSV
             </button>
-            <button type="button" onclick="loadBatchEvaluation()" class="btn-primary text-xs">
+            <button type="button" id="btnReloadSampleBatch" onclick="loadBatchEvaluation()" class="btn-primary text-xs">
               Chạy lại 15 Hồ sơ Mẫu
             </button>
           </div>
         </div>
 
         <!-- KPIs Thống kê Danh mục -->
-        <div id="batchKpiCards" class="grid grid-cols-2 md:grid-cols-5 gap-3.5">
+        <div id="batchKpiCards" class="grid grid-cols-2 md:grid-cols-6 gap-3.5">
           <!-- Render động từ JS -->
         </div>
 
@@ -634,6 +691,7 @@
                 <th>Điểm & Hạng</th>
                 <th>Quyết định của Drools</th>
                 <th>Hạn mức & Lãi suất</th>
+                <th>Basel III (PD / LGD / EL / RAROC)</th>
                 <th>Chuỗi Luật Kích hoạt</th>
                 <th>Thao tác</th>
               </tr>
@@ -642,6 +700,104 @@
               <!-- Render động từ JS -->
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- KHUNG MÔ PHỎNG STRESS-TEST DANH MỤC TÍN DỤNG THEO CÚ SỐC VĨ MÔ (BASEL III STRESS TESTING) -->
+      <div id="baselStressTestPanel" class="dss-card p-5 space-y-5">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 border-b border-slate-200 pb-3.5">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-rose-700">
+              Basel III Pillar 2 • Macro-Prudential Portfolio Stress Testing & Risk Migration
+            </span>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">
+              Mô phỏng Stress-Test Danh mục Tín dụng theo Cú sốc Vĩ mô (Basel III Stress Testing)
+            </h2>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" id="stressPresetBaseline" onclick="applyStressPreset('baseline')" class="btn-secondary !py-1.5 !px-2.5 text-xs">
+              Cơ sở (0%)
+            </button>
+            <button type="button" id="stressPresetMild" onclick="applyStressPreset('mild')" class="btn-secondary !py-1.5 !px-2.5 text-xs">
+              Suy thoái Nhẹ
+            </button>
+            <button type="button" id="stressPresetAdverse" onclick="applyStressPreset('adverse')" class="btn-secondary !py-1.5 !px-2.5 text-xs">
+              Cú sốc Chuẩn Basel III
+            </button>
+            <button type="button" id="stressPresetSevere" onclick="applyStressPreset('severe')" class="btn-secondary !py-1.5 !px-2.5 text-xs">
+              Khủng hoảng Nghiêm trọng
+            </button>
+            <button type="button" id="btnRunStressTest" onclick="runPortfolioStressTest()" class="btn-primary !py-1.5 text-xs">
+              Chạy Stress-Test Danh mục
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <!-- Cột Trái (4/12): Tham số Cú sốc Kinh tế Vĩ mô -->
+          <div class="lg:col-span-4 p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-4">
+            <div class="text-xs font-extrabold uppercase tracking-wider text-slate-800">
+              Tham số Cú sốc Vĩ mô trên 15 Hồ sơ
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span>Sốc giảm Thu nhập ròng (`income_shock_pct`):</span>
+                <span id="lbl_stress_income" class="font-mono font-bold text-rose-700">-20%</span>
+              </div>
+              <input id="inp_stress_income" type="range" min="-50" max="0" step="5" value="-20" oninput="onStressSliderInput()" class="w-full accent-rose-600" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span>Sốc giảm Giá trị TSĐB (`collateral_shock_pct`):</span>
+                <span id="lbl_stress_collateral" class="font-mono font-bold text-rose-700">-25%</span>
+              </div>
+              <input id="inp_stress_collateral" type="range" min="-60" max="0" step="5" value="-25" oninput="onStressSliderInput()" class="w-full accent-rose-600" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-semibold mb-1">
+                <span>Sốc tăng Áp lực Nợ DTI (`dti_shock_pts`):</span>
+                <span id="lbl_stress_dti" class="font-mono font-bold text-amber-700">+12.0 điểm %</span>
+              </div>
+              <input id="inp_stress_dti" type="range" min="0" max="35" step="1" value="12" oninput="onStressSliderInput()" class="w-full accent-amber-600" />
+            </div>
+
+            <div class="p-3 rounded-lg bg-white border border-slate-200 text-[11px] text-slate-600 leading-relaxed">
+              <strong class="text-slate-800">Cơ chế Basel III Stress-Test:</strong> Áp dụng đồng thời cú sốc giảm thu nhập, chiết khấu tài sản đảm bảo (haircut) và tăng nghĩa vụ nợ DTI lên toàn bộ 15 hồ sơ, chạy lại 15 phiên suy diễn <code>KieSession</code> để đo lường mức tăng <code>Expected Loss (EL)</code> và xuất <strong>Ma trận Dịch chuyển Hạng Rủi ro 4×4</strong>.
+            </div>
+          </div>
+
+          <!-- Cột Phải (8/12): KPIs Tác động & Ma trận Dịch chuyển Hạng Rủi ro (Risk Migration Matrix) -->
+          <div class="lg:col-span-8 space-y-4">
+            <div id="stressImpactKpis" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <!-- Render động từ JS -->
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div class="md:col-span-7 p-3.5 rounded-xl border border-slate-200 bg-white space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    Ma trận Dịch chuyển Hạng Rủi ro (`Risk Migration Matrix 4×4`)
+                  </span>
+                  <span class="text-[10px] font-mono text-slate-500">Hàng: Trước → Cột: Sau cú sốc</span>
+                </div>
+                <div id="riskMigrationMatrixBox" class="overflow-x-auto">
+                  <!-- Render động từ JS -->
+                </div>
+              </div>
+
+              <div class="md:col-span-5 p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
+                <div class="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  Hồ sơ Hạ bậc Rủi ro / Đổi Quyết định
+                </div>
+                <div id="stressDowngradedListBox" class="space-y-1.5 max-h-52 overflow-y-auto text-xs pr-1">
+                  <!-- Render động từ JS -->
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -654,13 +810,16 @@
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-slate-200 pb-3">
           <div>
             <span class="text-xs font-bold uppercase tracking-wider text-sky-700">
-              Khu vực 6A • Live DRL Studio & Decision Table Loader
+              Khu vực 6A • Live DRL Studio & SafeASTEvaluator Sandbox
             </span>
             <h2 class="text-base sm:text-lg font-bold text-slate-900">
               Trình Xem & Chỉnh sửa Trực tiếp Tập Luật `rules/credit_approval.drl` (Tách biệt Luật Nghiệp vụ & Code)
             </h2>
           </div>
           <div class="flex flex-wrap items-center gap-2">
+            <span class="px-2.5 py-1 rounded-md bg-teal-50 border border-teal-200 text-teal-800 font-mono text-[11px] font-bold">
+              🛡️ SafeAST Sandbox: Active
+            </span>
             <button type="button" onclick="resetDefaultDrl()" class="btn-secondary text-xs">
               Khôi phục Tập luật `.drl` Gốc
             </button>
@@ -671,7 +830,7 @@
         </div>
 
         <div id="drlCompileStatusBanner" class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold">
-          KieBase đang hoạt động ổn định: Đã biên dịch 20 luật từ `rules/credit_approval.drl` + 3 luật từ `rules/decision_table_rules.csv`.
+          KieBase đang hoạt động ổn định (Bảo vệ bởi `SafeASTEvaluator` chống Code Injection): Đã biên dịch 20 luật từ `rules/credit_approval.drl` + 3 luật từ `rules/decision_table_rules.csv`.
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">

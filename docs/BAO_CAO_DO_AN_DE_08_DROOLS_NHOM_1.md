@@ -28,12 +28,15 @@
    - 3.4. Bảng Đặc tả Đầy đủ Tập Luật Nghiệp vụ (`R01`–`R20` và Decision Table `DT01`–`DT03`)
    - 3.5. Truy vết Suy diễn Từng bước Bằng tay (`Manual Step-by-Step Trace`) cho 3 Kịch bản Điển hình
 4. [CHƯƠNG 4: XÂY DỰNG ỨNG DỤNG DEMO, THỰC NGHIỆM, ĐỐI CHIẾU VÀ ĐÁNH GIÁ](#chương-4-xây-dựng-ứng-dụng-demo-thực-nghiệm-đối-chiếu-và-đánh-giá)
-   - 4.1. Kiến trúc Triển khai Bộ máy Thực thi `.drl` và Web Dashboard trên Python
-   - 4.2. Các Phân hệ Tương tác của Giao diện Demo FinTech DSS Dashboard
+   - 4.1. Kiến trúc Triển khai Bộ máy Thực thi `.drl`, `SafeASTEvaluator` & `Incremental Alpha Memory Cache`
+   - 4.2. Các Phân hệ Tương tác của Giao diện Demo FinTech DSS Dashboard & Chuẩn CSV RFC 4180
    - 4.3. Kết quả Thực nghiệm Danh mục 15 Hồ sơ Tín dụng (`data/sample_applicants.csv`)
    - 4.4. Đối chiếu Kết quả Thực thi trên Máy với Truy vết Bằng tay
-   - 4.5. Kết quả Kiểm thử Tự động Toàn diện (`17/17 Unit & Integration Tests PASS 100%`)
-   - 4.6. Đánh giá Ưu điểm, Hạn chế và Hướng Phát triển
+   - 4.5. Đối sánh Thực nghiệm 3 Công cụ Cùng Nhóm (`Drools .drl` vs `CLIPS .clp` vs `Prolog .pl`) & Fuzzing 100 Hồ sơ
+   - 4.6. Kiểm định & Xác thực Hình thức Tập luật (`Formal Rule Base V&V`) & Suy diễn Mục tiêu Ngược (`Goal-Seeker`)
+   - 4.7. Mô hình Định lượng Rủi ro Tín dụng Basel III (`PD`, `LGD`, `EAD`, `EL`, `RAROC`) & Stress-Testing Danh mục
+   - 4.8. Kết quả Kiểm thử Tự động Toàn diện (`28/28 Unit, Security, Basel III & Fuzzing Tests PASS 100%`)
+   - 4.9. Đánh giá Ưu điểm, Hạn chế và Hướng Phát triển
 5. [TÀI LIỆU THAM KHẢO](#tài-liệu-tham-khảo)
 
 ---
@@ -478,30 +481,35 @@ flowchart TD
 
 ## CHƯƠNG 4: XÂY DỰNG ỨNG DỤNG DEMO, THỰC NGHIỆM, ĐỐI CHIẾU VÀ ĐÁNH GIÁ
 
-### 4.1. Kiến trúc Triển khai Bộ máy Thực thi `.drl` và Web Dashboard trên Python
+### 4.1. Kiến trúc Triển khai Bộ máy Thực thi `.drl`, `SafeASTEvaluator` & `Incremental Alpha Memory Cache`
 
-Để đảm bảo đồ án vừa tuân thủ **100% chuẩn cú pháp `.drl` và kiến trúc lõi của Apache KIE / Drools**, vừa chạy độc lập 100% trên mọi máy tính phòng máy bằng lệnh duy nhất `python app.py` (không phụ thuộc vào việc cài đặt JVM/Maven phức tạp), Nhóm 1 đã thiết kế kiến trúc 3 lớp trong Python:
+Để đảm bảo đồ án vừa tuân thủ **100% chuẩn cú pháp `.drl` và kiến trúc lõi của Apache KIE / Drools**, vừa đạt chuẩn an toàn bảo mật doanh nghiệp và chạy độc lập 100% trên mọi máy tính bằng lệnh duy nhất `python app.py`, Nhóm 1 đã thiết kế kiến trúc V3 Ultimate trên Python chuẩn:
 
-1. **Lớp Lõi Suy diễn (`engine/drools_engine.py`):**
+1. **Lớp Lõi Suy diễn, Bảo mật AST & Tối ưu Bộ nhớ Đệm (`engine/drools_engine.py`):**
    - Cài đặt đầy đủ `DRLParser`, `DecisionTableLoader`, `RetePhreakNetwork` (`EntryPointNode`, `ObjectTypeNode`, `AlphaNode` có Node Sharing, `BetaNode` Join 2-Fact, `RuleTerminalNode`), `KieBase`, `KieSession`, `Agenda`, `ConflictResolver`, `Truth Maintenance System (insertLogical)` và `AgendaEventListener`.
+   - **`SafeASTEvaluator` (Chặn tuyệt đối Code Injection trên Live DRL Studio):** Sử dụng module `ast` chuẩn của Python để kiểm duyệt và thông dịch trực tiếp cây cú pháp trừu tượng mà không gọi `eval()` hay `compile()`. Chỉ cho phép các node toán học, so sánh, logic, biểu thức điều kiện 3 ngôi và truy cập thuộc tính `Fact` an toàn; chặn 100% các payload nguy hiểm như `__import__('os').system(...)`, `().__class__.__base__.__subclasses__()`, `open()`, `eval()`, `exec()`, `lambda`, comprehension.
+   - **`Incremental Alpha Memory Cache` theo `(handle_id, fact.recency)`:** Trên mỗi `AlphaNode`, kết quả đánh giá điều kiện của từng `FactHandle` được lưu đệm theo cặp khóa `(handle_id, fact.recency)`. Khi một luật thực thi `modify($app)`, chỉ những Fact có `recency` thay đổi mới phải tính lại biểu thức; các Fact không đổi (như `EligibilityPassed` hoặc các `Applicant` khác trong phiên đa sự kiện) đạt **Cache Hit 100%**, đồng thời xuất thống kê `cache_hits` trực tiếp trong `rete_network.stats`.
+   - **`StrictInputSanitizer`:** Chuẩn hóa dữ liệu biên nghiêm ngặt ngay tại `build_applicant_fact()`, khử `NaN`/`Inf` và chống chia cho 0 tuyệt đối (`loan_term_months >= 1`, `monthly_income >= 0.1`, `loan_amount >= 1.0`).
 2. **Lớp Tri thức & Dữ liệu (`rules/` & `data/`):**
    - `rules/credit_approval.drl`: 20 luật chuẩn cú pháp Drools DRL (`R01`–`R20`).
    - `rules/decision_table_rules.csv`: 3 luật bổ sung từ bảng quyết định (`DT01`–`DT03`).
+   - `rules/credit_approval.clp` & `rules/credit_approval.pl`: Tập luật đối chứng CLIPS và SWI-Prolog.
    - `data/sample_applicants.csv`: 15 hồ sơ tín dụng thực tế đa dạng (`APP001`–`APP015`).
 3. **Lớp Web Server & Giao diện FinTech DSS Dashboard (`app.py`, `static/index.html`, `static/styles.css`, `static/app.js`):**
-   - Backend REST API sử dụng `ThreadingHTTPServer` chuẩn của Python.
-   - Frontend Single-Page Dashboard hiện đại gồm 6 phân hệ tương tác trực quan.
+   - Backend REST API sử dụng `ThreadingHTTPServer` chuẩn của Python (bao gồm `/api/overview`, `/api/evaluate`, `/api/what-if`, `/api/batch`, `/api/stress-test`, `/api/compare-engines`, `/api/goal-seek`, `/api/verify-rules`, `/api/rules/compile`, `/api/tms-demo`).
+   - Frontend Single-Page Dashboard tích hợp đầy đủ chỉ số Basel III, khung Stress-Testing vĩ mô và bộ đọc CSV chuẩn **RFC 4180** (xử lý chính xác dấu phẩy, xuống dòng và cặp ngoặc kép thoát `""` bên trong dấu ngoặc kép).
 
 ---
 
-### 4.2. Các Phân hệ Tương tác của Giao diện Demo FinTech DSS Dashboard
+### 4.2. Các Phân hệ Tương tác của Giao diện Demo FinTech DSS Dashboard & Chuẩn CSV RFC 4180
 
 1. **Khu vực 1 – Thanh Kịch bản Demo 1-Click (6 Preset Scenarios):** Cho phép giảng viên và hội đồng bấm 1 click để nạp ngay 6 kịch bản kinh điển (VIP Hạng A, Hạng B Có TSĐB, Hạng B Tín chấp, Hồ sơ Xung đột Hạng C, Knock-out CIC, Knock-out DTI) hoặc chọn bất kỳ hồ sơ nào trong 15 hồ sơ CSV.
-2. **Khu vực 2 – Bảng Kết quả Hỗ trợ Ra quyết định (Executive Decision Card & 5D Radar Chart):** Hiển thị nổi bật Badge quyết định, Điểm tổng hợp `/100`, Hạng rủi ro, Hạn mức duyệt, Lãi suất `%/năm`, Khoản trả góp hàng tháng, Biểu đồ Radar 5 chiều và Khuyến nghị hành động của DSS.
-3. **Khu vực 3 – Sơ đồ Mạng Suy diễn Rete / PHREAK & Step-by-Step Replay:** Trực quan hóa toàn bộ các nút `OTN → AlphaNode → BetaNode → RuleTerminalNode` theo 4 cột tầng `agenda-group`. Hỗ trợ nút **Replay từng bước** làm phát sáng nút đang chạy ở từng chu kỳ và nút **Minh họa TMS (`insertLogical`)**.
+2. **Khu vực 2 – Executive Decision Card, Chỉ số Basel III (`PD`, `LGD`, `EL`, `RAROC`) & 5D Radar Chart:** Hiển thị nổi bật Badge quyết định, Điểm tổng hợp `/100`, Hạng rủi ro, Hạn mức duyệt, Lãi suất `%/năm`, Khoản trả góp hàng tháng, dải chỉ số định lượng rủi ro chuẩn ngân hàng **Basel III (`PD`, `LGD`, `Expected Loss`, `RAROC`)**, Biểu đồ Radar 5 chiều và Tờ trình thẩm định in PDF.
+3. **Khu vực 3 – Sơ đồ Mạng Suy diễn Rete / PHREAK, Alpha Cache Stats & Step-by-Step Replay:** Trực quan hóa toàn bộ các nút `OTN → AlphaNode → BetaNode → RuleTerminalNode` theo 4 cột tầng `agenda-group`, hiển thị thống kê `Node Sharing` + `Incremental Alpha Cache Hits`, nút **Replay từng bước** và nút **Minh họa TMS (`insertLogical`)**.
 4. **Khu vực 4 – Nhật ký Truy vết Kích hoạt Luật & Bằng chứng Conflict Resolution:** Hiển thị bảng timeline từng Cycle, tập xung đột `Conflict Set`, biến đổi Fact `Before → After` và danh sách các luật bị hủy do `activation-group`.
 5. **Khu vực 5 – Phòng Thí nghiệm What-If & Phân tích Độ nhạy:** Cho phép kéo thanh trượt thay đổi Thu nhập, Số tiền vay, Giá trị TSĐB, Điểm tín dụng, DTI để so sánh song song **Baseline vs What-If** và vẽ đường cong độ nhạy.
-6. **Khu vực 6 – Live DRL Studio & Chấm điểm Hàng loạt (Batch CSV Scoring):** Cho phép sửa trực tiếp mã nguồn `.drl` ngay trên trình duyệt, bấm biên dịch lại `KieBase` tức thì, và chấm điểm toàn bộ 15 hồ sơ CSV chỉ với 1 click.
+6. **Khu vực 6 – Chấm điểm Hàng loạt (CSV RFC 4180), Mô phỏng Stress-Test Vĩ mô Basel III & Live DRL Studio:** Cho phép nạp/xuất CSV chuẩn RFC 4180, chạy mô phỏng cú sốc kinh tế vĩ mô xuất **Ma trận Dịch chuyển Hạng Rủi ro 4×4**, và sửa nóng `.drl` an toàn dưới sự bảo vệ của `SafeASTEvaluator`.
+7. **Khu vực 7 – Đối sánh 3 Bộ máy (`Drools` vs `CLIPS` vs `Prolog`), `Backward Goal-Seeker` & Báo cáo `Formal Rule V&V`.**
 
 ---
 
@@ -546,14 +554,15 @@ Bảng dưới đây ghi nhận kết quả thực nghiệm khi chạy toàn b�
 
 ---
 
-### 4.5. Đối sánh Thực nghiệm 3 Công cụ Cùng Nhóm (`Drools .drl` vs `CLIPS .clp` vs `Prolog .pl`)
+### 4.5. Đối sánh Thực nghiệm 3 Công cụ Cùng Nhóm (`Drools .drl` vs `CLIPS .clp` vs `Prolog .pl`) & Fuzzing 100 Hồ sơ
 
 Để đáp ứng trọn vẹn yêu cầu *"Tìm hiểu và giới thiệu về các công cụ thư viện trong nhóm Rule-based (`CLIPS` hay `PROLOG` hay `DROOLS`)"* trong đề bài, Nhóm 1 đã cài đặt cùng bài toán Thẩm định Tín dụng trên cả 3 ngôn ngữ chuẩn:
 1. **Apache KIE / Drools (`rules/credit_approval.drl`):** Suy diễn tiến 4 tầng `agenda-group` với mạng **PHREAK**, giải quyết xung đột `activation-group` và bảo toàn chân lý `insertLogical (TMS)`.
 2. **NASA CLIPS (`rules/credit_approval.clp`):** Suy diễn tiến với mạng **Rete cổ điển**, biểu diễn tri thức bằng `(deftemplate applicant ...)` và `(defrule R01..R17 (declare (salience ...)) => (modify ?app ...))`.
 3. **SWI-Prolog (`rules/credit_approval.pl`):** Suy diễn lùi hướng mục tiêu (**Backward Chaining & SLD Resolution**) với vị từ mục tiêu `evaluate_credit(Id, Decision, RiskTier, Score, ApprovedAmount, InterestRate, RejCode) :- ...` và toán tử cắt nhánh `!` (*Cut*).
 
-**Kết quả thực nghiệm đối chứng (`test_20_multi_paradigm_comparison`):** Khi chạy kiểm thử tự động trên toàn bộ **15/15 hồ sơ (`APP001`–`APP015`)**, cả 3 bộ máy **Drools**, **CLIPS** và **Prolog** đều hội tụ **khớp 100%** về Quyết định (`decision`), Hạng rủi ro (`risk_tier`), Điểm tổng hợp (`composite_score`), Hạn mức phê duyệt (`approved_amount`) và Lãi suất (`interest_rate`), đồng thời thể hiện rõ sự khác biệt về vết suy diễn (Agenda Forward Trace của Drools/CLIPS so với SLD Proof Tree `CALL -> SUBGOAL -> EXIT / FAIL / CUT` của Prolog).
+**Kết quả thực nghiệm đối chứng & Kiểm thử Fuzzing ngẫu nhiên (`test_20` & `test_28`):**
+- Trên toàn bộ **15/15 hồ sơ mẫu (`APP001`–`APP015`)** và **100/100 hồ sơ khách hàng sinh ngẫu nhiên (Property-Based Fuzzing bao phủ các điểm biên nhạy cảm)**, cả 3 bộ máy **Drools**, **CLIPS** và **Prolog** đều hội tụ **khớp tuyệt đối 100% (`115/115` trường hợp)** về Quyết định (`decision`), Hạng rủi ro (`risk_tier`), Điểm tổng hợp (`composite_score`), Hạn mức phê duyệt (`approved_amount`), Lãi suất (`interest_rate`) và Mã từ chối (`rejection_code`).
 
 ---
 
@@ -573,26 +582,42 @@ Bên cạnh đó, mô-đun **`BackwardGoalSeeker`** bổ sung khả năng **Truy
 
 ---
 
-### 4.7. Kết quả Kiểm thử Tự động Toàn diện (`22/22 Unit & Integration Tests PASS 100%`)
+### 4.7. Mô hình Định lượng Rủi ro Tín dụng Basel III (`PD`, `LGD`, `EAD`, `EL`, `RAROC`) & Stress-Testing Danh mục
 
-Bộ kiểm thử tự động trong `tests/test_drools_engine.py` được thực thi bằng lệnh `python -m unittest discover -s tests -v`, đạt **22/22 test cases PASS 100%**:
-- `test_01` – `test_06`: Kiểm tra `DRLParser`, `DecisionTableLoader`, `RetePhreakNetwork & AlphaNode Sharing`, `Conflict Resolution (salience & activation-group)`, `no-loop & lock-on-active`, và `Truth Maintenance System (insertLogical & Auto-Retract)`. (**PASS**)
-- `test_07` – `test_13`: Kiểm tra toàn bộ 6 kịch bản nghiệp vụ điển hình (`APP001`–`APP006`) cùng các trường hợp biên `R01` (`APP012`) và `R12 -> R17` (`APP011`). (**PASS**)
-- `test_14` – `test_17`: Kiểm tra `What-If & Sensitivity Simulator`, `Batch CSV Scoring (15 hồ sơ)`, `Live DRL Hot-Reload` và `Web Server REST API`. (**PASS**)
-- `test_18` – `test_22`: Kiểm tra `RuleBaseVerifier (5 tiêu chuẩn V&V)`, `BackwardGoalSeeker`, `MultiParadigmComparator (Drools vs CLIPS vs Prolog khớp 100% trên cả 15 hồ sơ)`, cấu hình tham chiếu `Apache KIE Java Maven (java_kie_reference/)` và các REST API nâng cao. (**PASS**)
+Trong phiên bản **V3 Ultimate**, kết quả suy diễn của Drools được kết nối trực tiếp với mô hình định lượng rủi ro tín dụng theo chuẩn ngân hàng quốc tế **Basel III**:
+1. **`pd_percent` (Probability of Default – Xác suất vỡ nợ 12 tháng):** Ánh xạ đơn điệu giảm dần theo `risk_tier` và `composite_score` (từ `0.55%` với khách hàng VIP `TIER_A` 100 điểm đến `38.0%` với hồ sơ nợ xấu `TIER_D`).
+2. **`lgd_percent` (Loss Given Default – Tỷ lệ tổn thất khi vỡ nợ):** Nội suy theo tỷ lệ bao phủ tài sản đảm bảo (`collateral_value / loan_amount`), từ mức sàn `10.0%` (khi TSĐB $\ge 150\%$) đến chuẩn `45.0%` đối với khoản vay tín chấp không có TSĐB.
+3. **`ead_amount` (Exposure at Default) & `expected_loss` (Tổn thất dự kiến):**
+   $$\text{EAD} = \text{Approved Amount}, \qquad \text{EL} = \text{PD} \times \text{LGD} \times \text{EAD}$$
+4. **`raroc_percent` (Risk-Adjusted Return on Capital):** Đo lường tỷ suất sinh lời ròng đã điều chỉnh rủi ro trên **Vốn kinh tế (`Economic Capital = 10.5% × RWA`)** theo bộ đệm an toàn vốn Basel III (`CAR 8.0% + CCB 2.5%`).
+5. **Mô phỏng Cú sốc Kinh tế Vĩ mô (`run_portfolio_stress_test` & `POST /api/stress-test`):** Cho phép áp dụng đồng thời cú sốc giảm thu nhập (`income_shock_pct`), chiết khấu tài sản đảm bảo (`collateral_shock_pct`) và tăng áp lực nợ (`dti_shock_pts`) lên toàn bộ 15 hồ sơ CSV, xuất trực tiếp **Ma trận Dịch chuyển Hạng Rủi ro 4×4 (`Risk Migration Matrix`)** phục vụ quản trị rủi ro danh mục (Basel III Pillar 2).
 
 ---
 
-### 4.8. Đánh giá Ưu điểm, Hạn chế và Hướng Phát triển
+### 4.8. Kết quả Kiểm thử Tự động Toàn diện (`28/28 Unit, Security, Basel III & Fuzzing Tests PASS 100%`)
+
+Bộ kiểm thử tự động trong `tests/test_drools_engine.py` được thực thi bằng lệnh `python3 -m unittest discover -s tests -v`, đạt **28/28 test cases PASS 100%**:
+- `test_01` – `test_06`: Kiểm tra `DRLParser`, `DecisionTableLoader`, `RetePhreakNetwork & AlphaNode Sharing`, `Conflict Resolution (salience & activation-group)`, `no-loop & lock-on-active`, và `Truth Maintenance System (insertLogical & Auto-Retract)`. (**PASS**)
+- `test_07` – `test_13`: Kiểm tra toàn bộ 6 kịch bản nghiệp vụ điển hình (`APP001`–`APP006`) cùng các trường hợp biên `R01` (`APP012`) và `R12 -> R17` (`APP011`). (**PASS**)
+- `test_14` – `test_17`: Kiểm tra `What-If & Sensitivity Simulator`, `Batch CSV Scoring (15 hồ sơ)`, `Live DRL Hot-Reload` và `Web Server REST API`. (**PASS**)
+- `test_18` – `test_24`: Kiểm tra `RuleBaseVerifier (5 tiêu chuẩn V&V)`, `BackwardGoalSeeker`, `MultiParadigmComparator (Drools vs CLIPS vs Prolog khớp 100% trên 15 hồ sơ)`, `Apache KIE Java Maven`, tài liệu học thuật `.docx`/`.pptx` và CI workflow. (**PASS**)
+- `test_25`: Kiểm chứng `SafeASTEvaluator` chặn 100% mã độc Code Injection trên biểu thức DRL & `StrictInputSanitizer` chống chia cho 0. (**PASS**)
+- `test_26`: Kiểm chứng `Incremental Alpha Memory Cache` theo `(handle_id, fact.recency)` và thống kê `cache_hits` trong `rete_network.stats`. (**PASS**)
+- `test_27`: Kiểm chứng các chỉ số `Basel III (PD, LGD, EAD, EL, RAROC)` và `POST /api/stress-test` xuất `Risk Migration Matrix`. (**PASS**)
+- `test_28`: Kiểm thử **Property-Based Fuzzing 100 hồ sơ ngẫu nhiên**, chứng minh cả 3 bộ máy **Drools (`.drl`)**, **CLIPS (`.clp`)** và **Prolog (`.pl`)** luôn hội tụ khớp quyết định **100/100 (100%)**. (**PASS**)
+
+---
+
+### 4.9. Đánh giá Ưu điểm, Hạn chế và Hướng Phát triển
 
 1. **Ưu điểm đạt được:**
-   - Мо phỏng chính xác kiến trúc lõi của Drools (`DRLParser`, `KieBase`, `KieSession`, `RetePhreakNetwork`, `Agenda`, `ConflictResolver`, `TMS insertLogical`, `DecisionTableLoader`) ngay trên Python chuẩn, giúp trực quan hóa hoàn toàn trạng thái bên trong của từng nút `AlphaNode`, `BetaNode`, `RuleTerminalNode` lên giao diện Web – điều mà khi gọi qua hộp đen JVM truyền thống rất khó bóc tách trực tiếp để giảng dạy và thuyết trình.
-   - Tập luật `rules/credit_approval.drl` tuân thủ chặt chẽ cú pháp Drools DRL, thiết kế phân tầng khoa học qua 4 `agenda-group`, kết hợp cả `activation-group`, `lock-on-active`, `no-loop` và `insertLogical`.
-   - Giao diện FinTech DSS Dashboard cung cấp đầy đủ công cụ cho người ra quyết định: Step-by-step Replay, What-If Simulator, Batch Scoring và Live DRL Studio.
+   - Mô phỏng chính xác kiến trúc lõi của Drools (`DRLParser`, `KieBase`, `KieSession`, `RetePhreakNetwork` có `Incremental Alpha Cache`, `SafeASTEvaluator`, `Agenda`, `ConflictResolver`, `TMS insertLogical`, `DecisionTableLoader`) ngay trên Python chuẩn, giúp trực quan hóa hộp trắng toàn bộ trạng thái bên trong của từng nút suy diễn.
+   - Kết hợp nhuần nhuyễn suy diễn luật nghiệp vụ với định lượng rủi ro chuẩn ngân hàng **Basel III (`PD`, `LGD`, `EAD`, `EL`, `RAROC`)** và **Macro Stress-Testing (`Risk Migration Matrix`)**.
+   - Đảm bảo chất lượng phần mềm mức cao nhất với `Formal Rule V&V (5/5)` và `28/28 Unit & Fuzzing Tests PASS 100%`.
 2. **Hạn chế:**
-   - Các ngưỡng điểm cộng/trừ và ngưỡng DTI hiện được xác định bởi chuyên gia rủi ro (Expert-defined thresholds), chưa tự động học trọng số từ dữ liệu lịch sử hàng triệu khoản vay.
+   - Các trọng số cộng/trừ điểm và hàm ánh xạ `PD` hiện được hiệu chỉnh theo quy tắc chuyên gia (Expert-calibrated), chưa tự động ước lượng từ dữ liệu lịch sử vỡ nợ quy mô hàng triệu bản ghi.
 3. **Hướng phát triển:**
-   - Kết hợp mô hình học máy (**Hybrid ML + Drools Rule-Based DSS**): Sử dụng mô hình XGBoost / Logistic Regression để dự báo xác suất vỡ nợ (`PD - Probability of Default`), sau đó đưa `PD` như một thuộc tính của Fact `Applicant` vào mạng Drools để thực thi các quy tắc quản trị rủi ro tuân thủ Basel III và sinh lời giải thích pháp lý.
+   - Mở rộng sang kiến trúc **Hybrid ML + Drools DMN**: Huấn luyện mô hình XGBoost / LightGBM dự báo `PD` cá thể hóa theo thời gian thực rồi nạp vào `KieSession` để kết hợp với các rào chắn tuân thủ Basel III và quy định của Ngân hàng Nhà nước.
 
 ---
 
@@ -603,3 +628,4 @@ Bộ kiểm thử tự động trong `tests/test_drools_engine.py` được th�
 3. Apache KIE / Red Hat Drools Documentation (2024). *Drools Rule Engine, PHREAK Algorithm & DRL Reference Guide*. https://docs.drools.org/
 4. Giarratano, J. C., & Riley, G. (2005). *Expert Systems: Principles and Programming* (4th ed., CLIPS & Rule-Based Systems). Course Technology.
 5. Bratko, I. (2012). *Prolog Programming for Artificial Intelligence* (4th ed.). Addison-Wesley.
+6. Basel Committee on Banking Supervision (BCBS). *Basel III: Finalising post-crisis reforms (IRB PD, LGD, EAD & Stress Testing Principles)*. Bank for International Settlements.

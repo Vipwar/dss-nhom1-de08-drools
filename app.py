@@ -32,7 +32,7 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-from engine.drools_engine import CreditApprovalDSS, KieBase
+from engine.drools_engine import CreditApprovalDSS, KieBase, UnsafeDRLExpressionError
 from engine.multi_paradigm_comparator import (
     BackwardGoalSeeker,
     MultiParadigmComparator,
@@ -145,6 +145,11 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
                     if len(presets) > 2
                     else {}
                 )
+                initial_stress = DSS_SERVICE.run_portfolio_stress_test(
+                    income_shock_pct=-20.0,
+                    collateral_shock_pct=-25.0,
+                    dti_shock_pts=12.0,
+                )
                 rules_meta = [
                     {
                         "rule_code": r.rule_code,
@@ -183,6 +188,7 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
                         "rule_verification": verification,
                         "initial_comparison": comparison,
                         "initial_goal_seek": goal_seek_default,
+                        "initial_stress_test": initial_stress,
                     }
                 )
                 return
@@ -245,6 +251,26 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
                 applicants = payload.get("applicants")
                 batch_res = DSS_SERVICE.evaluate_batch(applicants)
                 self._send_json({"status": "OK", "batch": batch_res})
+                return
+
+            if path == "/api/stress-test":
+                income_shock_pct = float(payload.get("income_shock_pct", -20.0))
+                collateral_shock_pct = float(payload.get("collateral_shock_pct", -25.0))
+                dti_shock_pts = float(payload.get("dti_shock_pts", 12.0))
+                applicants = payload.get("applicants")
+                stress_res = DSS_SERVICE.run_portfolio_stress_test(
+                    income_shock_pct=income_shock_pct,
+                    collateral_shock_pct=collateral_shock_pct,
+                    dti_shock_pts=dti_shock_pts,
+                    applicants=applicants,
+                )
+                self._send_json(
+                    {
+                        "status": "OK",
+                        "stress_test": stress_res,
+                        "result": stress_res,
+                    }
+                )
                 return
 
             if path == "/api/compare-engines":
@@ -324,6 +350,15 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
             self._send_json(
                 {"status": "ERROR", "message": f"Không tìm thấy endpoint {path}"},
                 status=HTTPStatus.NOT_FOUND,
+            )
+        except UnsafeDRLExpressionError as sec_exc:
+            self._send_json(
+                {
+                    "status": "ERROR",
+                    "security_blocked": True,
+                    "message": f"[SafeASTEvaluator Blocked] {sec_exc}",
+                },
+                status=HTTPStatus.BAD_REQUEST,
             )
         except Exception as exc:
             traceback.print_exc()

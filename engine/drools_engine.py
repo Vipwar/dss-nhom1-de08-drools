@@ -56,18 +56,455 @@ def round2(val: Union[int, float]) -> float:
     return round(float(val), 2)
 
 
-class _DroolsAddTransformer(ast.NodeTransformer):
-    """Chuyen phep '+' trong AST sang ham _drools_add(left, right) de ho tro noi chuoi + so."""
+class UnsafeDRLExpressionError(ValueError):
+    """Ngoai le bao mat khi phat hien bieu thuc DRL chua cu phap khong an toan hoac Code Injection."""
 
-    def visit_BinOp(self, node: ast.BinOp) -> ast.AST:
-        self.generic_visit(node)
-        if isinstance(node.op, ast.Add):
-            return ast.Call(
-                func=ast.Name(id="_drools_add", ctx=ast.Load()),
-                args=[node.left, node.right],
-                keywords=[],
+
+class SafeASTEvaluator:
+    """
+    Bo danh gia bieu thuc DRL an toan tuyet doi dua tren cay cu phap truu tuong (Python `ast`):
+    - Chi cho phep cac node toan hoc, so sanh, logic, toan tu 3 ngoi, tuple/list hang so,
+      truy cap thuoc tinh Fact an toan va cac ham toan hoc thuan khiet trong whitelist.
+    - Hoan toan KHONG su dung ham `eval()` hay `compile()` cua Python.
+    - Chan tuyet doi moi lo hong Code Injection (__import__, eval, exec, open, dunder __class__,
+      lambda, comprehension, attribute tren object he thong) tren Live DRL Studio.
+    """
+
+    MAX_EXPR_LENGTH: int = 4096
+    MAX_AST_NODES: int = 250
+    MAX_EXPONENT: float = 100.0
+
+    SAFE_FUNCTIONS: Dict[str, Callable[..., Any]] = {
+        "_drools_add": _drools_add,
+        "round2": round2,
+        "round": round,
+        "min": min,
+        "max": max,
+        "abs": abs,
+        "int": int,
+        "float": float,
+        "str": str,
+        "len": len,
+    }
+
+    FORBIDDEN_NAMES: Set[str] = {
+        "__import__",
+        "__builtins__",
+        "__loader__",
+        "__spec__",
+        "__package__",
+        "__file__",
+        "__name__",
+        "eval",
+        "exec",
+        "compile",
+        "open",
+        "input",
+        "breakpoint",
+        "globals",
+        "locals",
+        "vars",
+        "dir",
+        "getattr",
+        "setattr",
+        "delattr",
+        "hasattr",
+        "type",
+        "object",
+        "super",
+        "classmethod",
+        "staticmethod",
+        "property",
+        "memoryview",
+        "bytearray",
+        "bytes",
+        "help",
+        "exit",
+        "quit",
+    }
+
+    ALLOWED_AST_NODES: Tuple[type, ...] = (
+        ast.Expression,
+        ast.Constant,
+        ast.Name,
+        ast.Load,
+        ast.Attribute,
+        ast.BinOp,
+        ast.Add,
+        ast.Sub,
+        ast.Mult,
+        ast.Div,
+        ast.FloorDiv,
+        ast.Mod,
+        ast.Pow,
+        ast.UnaryOp,
+        ast.UAdd,
+        ast.USub,
+        ast.Not,
+        ast.BoolOp,
+        ast.And,
+        ast.Or,
+        ast.Compare,
+        ast.Eq,
+        ast.NotEq,
+        ast.Lt,
+        ast.LtE,
+        ast.Gt,
+        ast.GtE,
+        ast.In,
+        ast.NotIn,
+        ast.Is,
+        ast.IsNot,
+        ast.IfExp,
+        ast.Tuple,
+        ast.List,
+        ast.Call,
+    )
+
+    _ast_cache: Dict[str, ast.Expression] = {}
+
+    @classmethod
+    def validate(cls, expr: str) -> ast.Expression:
+        """Kiem tra tinh an toan AST cua bieu thuc DRL va luu cache cay AST da duyet."""
+        if not isinstance(expr, str) or not expr.strip():
+            raise ValueError("Biểu thức DRL không được để trống.")
+        if len(expr) > cls.MAX_EXPR_LENGTH:
+            raise UnsafeDRLExpressionError(
+                f"Biểu thức DRL vượt quá độ dài an toàn tối đa ({cls.MAX_EXPR_LENGTH} ký tự)."
             )
-        return node
+
+        cached = cls._ast_cache.get(expr)
+        if cached is not None:
+            return cached
+
+        py_expr = translate_drl_expression(expr)
+        try:
+            tree = ast.parse(py_expr, mode="eval")
+        except SyntaxError as exc:
+            raise ValueError(f"Lỗi cú pháp biểu thức DRL '{expr}': {exc}") from exc
+
+        node_count = 0
+        for node in ast.walk(tree):
+            node_count += 1
+            if node_count > cls.MAX_AST_NODES:
+                raise UnsafeDRLExpressionError(
+                    f"Biểu thức DRL quá phức tạp ({node_count} AST nodes > {cls.MAX_AST_NODES})."
+                )
+
+            if not isinstance(node, cls.ALLOWED_AST_NODES):
+                raise UnsafeDRLExpressionError(
+                    f"Chặn cú pháp AST không an toàn '{type(node).__name__}' trong biểu thức DRL: {expr}"
+                )
+
+            if isinstance(node, ast.Name):
+                ident = node.id
+                if (
+                    "__" in ident
+                    or ident in cls.FORBIDDEN_NAMES
+                    or (ident.startswith("_") and not ident.startswith("_var_") and ident != "_drools_add")
+                ):
+                    raise UnsafeDRLExpressionError(
+                        f"Chặn định danh bị cấm '{ident}' trong biểu thức DRL: {expr}"
+                    )
+
+            elif isinstance(node, ast.Attribute):
+                attr = node.attr
+                if attr.startswith("_") or "__" in attr or attr in cls.FORBIDDEN_NAMES:
+                    raise UnsafeDRLExpressionError(
+                        f"Chặn truy cập thuộc tính nội bộ/hệ thống '{attr}' trong biểu thức DRL: {expr}"
+                    )
+
+            elif isinstance(node, ast.Call):
+                if not isinstance(node.func, ast.Name):
+                    raise UnsafeDRLExpressionError(
+                        f"Chặn lời gọi phương thức/hàm động không an toàn trong biểu thức DRL: {expr}"
+                    )
+                fn_name = node.func.id
+                if fn_name not in cls.SAFE_FUNCTIONS:
+                    raise UnsafeDRLExpressionError(
+                        f"Chặn hàm không nằm trong danh sách an toàn '{fn_name}()' trong biểu thức DRL: {expr}"
+                    )
+                if node.keywords or any(isinstance(a, ast.Starred) for a in node.args):
+                    raise UnsafeDRLExpressionError(
+                        f"Không cho phép keyword/starred arguments trong lời gọi hàm DRL: {expr}"
+                    )
+
+        if len(cls._ast_cache) >= 4096:
+            cls._ast_cache.clear()
+        cls._ast_cache[expr] = tree
+        return tree
+
+    @classmethod
+    def evaluate(
+        cls,
+        expr: str,
+        fact_obj: Optional[Any] = None,
+        bindings: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Danh gia truc tiep cay AST cua bieu thuc DRL trong moi truong co lap an toan."""
+        tree = cls.validate(expr)
+        env: Dict[str, Any] = {
+            "True": True,
+            "False": False,
+            "None": None,
+        }
+        if fact_obj is not None:
+            if isinstance(fact_obj, Fact):
+                for k, v in object.__getattribute__(fact_obj, "_data").items():
+                    if not str(k).startswith("_"):
+                        env[k] = v
+            elif isinstance(fact_obj, dict):
+                for k, v in fact_obj.items():
+                    if not str(k).startswith("_"):
+                        env[k] = v
+            else:
+                for k in dir(fact_obj):
+                    if not k.startswith("_"):
+                        env[k] = getattr(fact_obj, k)
+
+        if bindings:
+            for var_name, bound_val in bindings.items():
+                clean_name = var_name.lstrip("$")
+                if not clean_name.startswith("_"):
+                    env[f"_var_{clean_name}"] = bound_val
+                    env[clean_name] = bound_val
+
+        return cls._eval_node(tree.body, env)
+
+    @classmethod
+    def _eval_node(cls, node: ast.AST, env: Dict[str, Any]) -> Any:
+        if isinstance(node, ast.Constant):
+            return node.value
+
+        if isinstance(node, ast.Name):
+            if node.id in env:
+                return env[node.id]
+            if node.id in cls.SAFE_FUNCTIONS or node.id in cls.FORBIDDEN_NAMES:
+                raise UnsafeDRLExpressionError(
+                    f"Không cho phép truy cập trực tiếp đối tượng hàm '{node.id}'."
+                )
+            raise NameError(f"Biến Fact '{node.id}' không tồn tại trong ngữ cảnh đánh giá DRL.")
+
+        if isinstance(node, ast.Attribute):
+            if node.attr.startswith("_") or "__" in node.attr:
+                raise UnsafeDRLExpressionError(
+                    f"Chặn truy cập thuộc tính hệ thống '{node.attr}'."
+                )
+            target = cls._eval_node(node.value, env)
+            if isinstance(target, Fact):
+                data = object.__getattribute__(target, "_data")
+                if node.attr in data:
+                    return data[node.attr]
+                raise AttributeError(f"Fact '{target.fact_type}' không có thuộc tính '{node.attr}'.")
+            if isinstance(target, dict):
+                if node.attr in target:
+                    return target[node.attr]
+                raise AttributeError(f"Đối tượng dict không có khóa '{node.attr}'.")
+            raise UnsafeDRLExpressionError(
+                f"Chỉ cho phép truy cập thuộc tính trên đối tượng Fact, chặn '{type(target).__name__}.{node.attr}'."
+            )
+
+        if isinstance(node, ast.UnaryOp):
+            operand = cls._eval_node(node.operand, env)
+            if isinstance(node.op, ast.UAdd):
+                return +operand
+            if isinstance(node.op, ast.USub):
+                return -operand
+            if isinstance(node.op, ast.Not):
+                return not bool(operand)
+            raise UnsafeDRLExpressionError(f"Toán tử một ngôi không được hỗ trợ: {type(node.op).__name__}")
+
+        if isinstance(node, ast.BoolOp):
+            if isinstance(node.op, ast.And):
+                for val_node in node.values:
+                    if not bool(cls._eval_node(val_node, env)):
+                        return False
+                return True
+            if isinstance(node.op, ast.Or):
+                for val_node in node.values:
+                    if bool(cls._eval_node(val_node, env)):
+                        return True
+                return False
+            raise UnsafeDRLExpressionError(f"Toán tử logic không được hỗ trợ: {type(node.op).__name__}")
+
+        if isinstance(node, ast.BinOp):
+            left = cls._eval_node(node.left, env)
+            right = cls._eval_node(node.right, env)
+            if isinstance(node.op, ast.Add):
+                return _drools_add(left, right)
+            if isinstance(node.op, ast.Sub):
+                return left - right
+            if isinstance(node.op, ast.Mult):
+                if isinstance(left, (str, list, tuple)) or isinstance(right, (str, list, tuple)):
+                    raise UnsafeDRLExpressionError("Không cho phép nhân chuỗi/danh sách trong biểu thức DRL.")
+                return left * right
+            if isinstance(node.op, ast.Div):
+                return left / right
+            if isinstance(node.op, ast.FloorDiv):
+                return left // right
+            if isinstance(node.op, ast.Mod):
+                if isinstance(left, str):
+                    raise UnsafeDRLExpressionError("Không cho phép định dạng chuỗi '%' trong biểu thức DRL.")
+                return left % right
+            if isinstance(node.op, ast.Pow):
+                if abs(float(right)) > cls.MAX_EXPONENT:
+                    raise UnsafeDRLExpressionError(
+                        f"Số mũ vượt quá giới hạn an toàn ({cls.MAX_EXPONENT})."
+                    )
+                return left ** right
+            raise UnsafeDRLExpressionError(f"Toán tử hai ngôi không được hỗ trợ: {type(node.op).__name__}")
+
+        if isinstance(node, ast.Compare):
+            left = cls._eval_node(node.left, env)
+            for op, comp_node in zip(node.ops, node.comparators):
+                right = cls._eval_node(comp_node, env)
+                if isinstance(op, ast.Eq):
+                    ok = left == right
+                elif isinstance(op, ast.NotEq):
+                    ok = left != right
+                elif isinstance(op, ast.Lt):
+                    ok = left < right
+                elif isinstance(op, ast.LtE):
+                    ok = left <= right
+                elif isinstance(op, ast.Gt):
+                    ok = left > right
+                elif isinstance(op, ast.GtE):
+                    ok = left >= right
+                elif isinstance(op, ast.In):
+                    ok = left in right
+                elif isinstance(op, ast.NotIn):
+                    ok = left not in right
+                elif isinstance(op, ast.Is):
+                    ok = left is right
+                elif isinstance(op, ast.IsNot):
+                    ok = left is not right
+                else:
+                    raise UnsafeDRLExpressionError(f"Phép so sánh không được hỗ trợ: {type(op).__name__}")
+                if not ok:
+                    return False
+                left = right
+            return True
+
+        if isinstance(node, ast.IfExp):
+            cond = bool(cls._eval_node(node.test, env))
+            return cls._eval_node(node.body, env) if cond else cls._eval_node(node.orelse, env)
+
+        if isinstance(node, ast.Tuple):
+            return tuple(cls._eval_node(elt, env) for elt in node.elts)
+
+        if isinstance(node, ast.List):
+            return [cls._eval_node(elt, env) for elt in node.elts]
+
+        if isinstance(node, ast.Call):
+            if not isinstance(node.func, ast.Name) or node.func.id not in cls.SAFE_FUNCTIONS:
+                raise UnsafeDRLExpressionError("Lời gọi hàm không hợp lệ hoặc bị chặn bởi SafeASTEvaluator.")
+            fn = cls.SAFE_FUNCTIONS[node.func.id]
+            args = [cls._eval_node(arg, env) for arg in node.args]
+            return fn(*args)
+
+        raise UnsafeDRLExpressionError(f"Node AST không được phép thực thi: {type(node).__name__}")
+
+
+class StrictInputSanitizer:
+    """
+    Bo chuan hoa va bao ve du lieu dau vao nghiem ngat (Boundary & Zero-Division Guard):
+    Dam bao chong chia cho 0 tuyet doi (`loan_term_months >= 1`, `monthly_income >= 0.1`,
+    `loan_amount >= 1.0`), khu NaN/Inf va gioi han mien gia tri hop le cho Fact Applicant.
+    """
+
+    @staticmethod
+    def to_bool(val: Any, default: bool = False) -> bool:
+        if isinstance(val, bool):
+            return val
+        if val is None:
+            return default
+        if isinstance(val, (int, float)):
+            if math.isnan(float(val)):
+                return default
+            return bool(val)
+        return str(val).strip().lower() in ("true", "1", "yes", "y", "on")
+
+    @staticmethod
+    def to_float(
+        val: Any,
+        default: float,
+        min_val: Optional[float] = None,
+        max_val: Optional[float] = None,
+    ) -> float:
+        try:
+            if val is None or (isinstance(val, str) and not val.strip()):
+                num = float(default)
+            else:
+                num = float(val)
+            if math.isnan(num) or math.isinf(num):
+                num = float(default)
+        except (ValueError, TypeError):
+            num = float(default)
+
+        if min_val is not None and num < min_val:
+            num = min_val
+        if max_val is not None and num > max_val:
+            num = max_val
+        return num
+
+    @staticmethod
+    def to_int(
+        val: Any,
+        default: int,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+    ) -> int:
+        num_f = StrictInputSanitizer.to_float(val, float(default))
+        num = int(round(num_f))
+        if min_val is not None and num < min_val:
+            num = min_val
+        if max_val is not None and num > max_val:
+            num = max_val
+        return num
+
+    @classmethod
+    def sanitize_applicant(cls, payload: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        data = payload if isinstance(payload, dict) else {}
+        app_id = str(data.get("applicant_id") or "APP_DEMO").strip() or "APP_DEMO"
+        full_name = str(data.get("full_name") or "Khách hàng Demo").strip() or "Khách hàng Demo"
+
+        age = cls.to_int(data.get("age"), default=32, min_val=0, max_val=120)
+        monthly_income = round(
+            cls.to_float(data.get("monthly_income"), default=25.0, min_val=0.1, max_val=100000.0), 2
+        )
+        employment_years = round(
+            cls.to_float(data.get("employment_years"), default=3.0, min_val=0.0, max_val=80.0), 2
+        )
+        credit_score = cls.to_int(data.get("credit_score"), default=720, min_val=300, max_val=850)
+        dti_ratio = round(
+            cls.to_float(data.get("dti_ratio"), default=30.0, min_val=0.0, max_val=500.0), 2
+        )
+        loan_amount = round(
+            cls.to_float(data.get("loan_amount"), default=200.0, min_val=1.0, max_val=1000000.0), 2
+        )
+        loan_term_months = cls.to_int(
+            data.get("loan_term_months"), default=36, min_val=1, max_val=360
+        )
+        collateral_value = round(
+            cls.to_float(data.get("collateral_value"), default=0.0, min_val=0.0, max_val=10000000.0), 2
+        )
+
+        return {
+            "applicant_id": app_id,
+            "full_name": full_name,
+            "age": age,
+            "monthly_income": monthly_income,
+            "employment_years": employment_years,
+            "credit_score": credit_score,
+            "dti_ratio": dti_ratio,
+            "loan_amount": loan_amount,
+            "loan_term_months": loan_term_months,
+            "collateral_value": collateral_value,
+            "cic_bad_debt": cls.to_bool(data.get("cic_bad_debt", False)),
+            "is_vip": cls.to_bool(data.get("is_vip", False)),
+            "scenario_tag": str(data.get("scenario_tag", "CUSTOM")),
+            "notes": str(data.get("notes", "")),
+        }
 
 
 def _split_top_level(text: str, delimiter: str = ",") -> List[str]:
@@ -212,44 +649,8 @@ def evaluate_drl_expression(
     fact_obj: Optional[Any] = None,
     bindings: Optional[Dict[str, Any]] = None,
 ) -> Any:
-    """Danh gia mot bieu thuc DRL voi ngữ cảnh Fact hien tai va cac bien binding ($app, $elig)."""
-    py_expr = translate_drl_expression(expr)
-    env: Dict[str, Any] = {
-        "_drools_add": _drools_add,
-        "round2": round2,
-        "round": round,
-        "min": min,
-        "max": max,
-        "abs": abs,
-        "int": int,
-        "float": float,
-        "str": str,
-        "len": len,
-        "True": True,
-        "False": False,
-        "None": None,
-    }
-    if fact_obj is not None:
-        if isinstance(fact_obj, Fact):
-            env.update(fact_obj.to_dict())
-        elif isinstance(fact_obj, dict):
-            env.update(fact_obj)
-        else:
-            for k in dir(fact_obj):
-                if not k.startswith("_"):
-                    env[k] = getattr(fact_obj, k)
-
-    if bindings:
-        for var_name, bound_val in bindings.items():
-            clean_name = var_name.lstrip("$")
-            env[f"_var_{clean_name}"] = bound_val
-            env[clean_name] = bound_val
-
-    tree = ast.parse(py_expr, mode="eval")
-    tree = _DroolsAddTransformer().visit(tree)
-    ast.fix_missing_locations(tree)
-    code = compile(tree, filename="<drl_expr>", mode="eval")
-    return eval(code, {"__builtins__": {}}, env)
+    """Danh gia mot bieu thuc DRL an toan thong qua SafeASTEvaluator."""
+    return SafeASTEvaluator.evaluate(expr, fact_obj=fact_obj, bindings=bindings)
 
 
 # ============================================================================
@@ -264,6 +665,7 @@ class Fact:
 
     def __init__(self, fact_type: str = "Applicant", **kwargs: Any) -> None:
         object.__setattr__(self, "_fact_type", fact_type)
+        object.__setattr__(self, "_recency", 0)
         object.__setattr__(self, "_data", {})
         for k, v in kwargs.items():
             self._data[k] = v
@@ -272,6 +674,14 @@ class Fact:
     def fact_type(self) -> str:
         return object.__getattribute__(self, "_fact_type")
 
+    @property
+    def recency(self) -> int:
+        return object.__getattribute__(self, "_recency")
+
+    @recency.setter
+    def recency(self, value: int) -> None:
+        object.__setattr__(self, "_recency", int(value))
+
     def __getattr__(self, item: str) -> Any:
         data = object.__getattribute__(self, "_data")
         if item in data:
@@ -279,8 +689,10 @@ class Fact:
         raise AttributeError(f"Fact '{self.fact_type}' khong co thuoc tinh '{item}'")
 
     def __setattr__(self, key: str, value: Any) -> None:
-        if key in ("_fact_type", "_data"):
+        if key in ("_fact_type", "_data", "_recency"):
             object.__setattr__(self, key, value)
+        elif key == "recency":
+            object.__setattr__(self, "_recency", int(value))
         else:
             self._data[key] = value
 
@@ -336,6 +748,17 @@ class FactHandle:
     is_logical: bool = False
     justifications: List[LogicalJustification] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        if isinstance(self.fact, Fact):
+            object.__setattr__(self.fact, "_recency", int(self.recency))
+
+    def __setattr__(self, key: str, value: Any) -> None:
+        object.__setattr__(self, key, value)
+        if key == "recency":
+            fact_obj = self.__dict__.get("fact")
+            if isinstance(fact_obj, Fact):
+                object.__setattr__(fact_obj, "_recency", int(value))
+
     @property
     def fact_type(self) -> str:
         return self.fact.fact_type
@@ -390,6 +813,7 @@ class DRLParser:
     Bo phan tich cu phap Drools Rule Language (.drl):
     Doc truc tiep package, import, declare, rule "...", salience, agenda-group,
     activation-group, no-loop, lock-on-active, khoi when (LHS) va khoi then (RHS).
+    Tich hop kiem tra an toan AST (SafeASTEvaluator) ngay khi bien dich luat.
     """
 
     def parse_file(self, file_path: str) -> Tuple[str, List[str], Dict[str, DeclaredType], List[DRLRule]]:
@@ -517,6 +941,7 @@ class DRLParser:
 
         lhs_patterns = self._parse_lhs(lhs_section)
         rhs_statements = self._parse_rhs(rhs_section)
+        self._validate_rule_safety(rule_name, lhs_patterns, rhs_statements)
 
         return DRLRule(
             name=rule_name,
@@ -532,6 +957,73 @@ class DRLParser:
             order_index=order_index,
             source=source,
         )
+
+    @staticmethod
+    def _validate_rule_safety(
+        rule_name: str,
+        lhs_patterns: List[PatternCondition],
+        rhs_statements: List[str],
+    ) -> None:
+        """Kiem chung an toan AST cho toan bo bieu thuc WHEN (LHS) va THEN (RHS) cua luat."""
+        for pat in lhs_patterns:
+            for cond in pat.constraints:
+                SafeASTEvaluator.validate(cond)
+
+        for stmt in rhs_statements:
+            m_mod = re.match(
+                r"^modify\s*\(\s*(\$[A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\{(.*)\}$",
+                stmt,
+                re.DOTALL,
+            )
+            if m_mod:
+                body = m_mod.group(2).strip()
+                for assign in _split_top_level(body, ","):
+                    if "=" not in assign:
+                        raise ValueError(f"Lệnh gán không hợp lệ trong modify() của luật '{rule_name}': {assign}")
+                    f_name, expr_str = assign.split("=", 1)
+                    f_clean = f_name.strip()
+                    if f_clean.startswith("_") or not re.match(r"^[A-Za-z][A-Za-z0-9_]*$", f_clean):
+                        raise UnsafeDRLExpressionError(
+                            f"Tên trường không hợp lệ hoặc bị cấm trong modify() của luật '{rule_name}': {f_clean}"
+                        )
+                    SafeASTEvaluator.validate(expr_str.strip())
+                continue
+
+            m_ins = re.match(
+                r"^(insertLogical|insert)\s*\(\s*new\s+([A-Za-z_][A-Za-z0-9_]*)\s*\((.*)\)\s*\)$",
+                stmt,
+                re.DOTALL,
+            )
+            if m_ins:
+                args_str = m_ins.group(3).strip()
+                for pair in (_split_top_level(args_str, ",") if args_str else []):
+                    if "=" in pair:
+                        k_str, v_str = pair.split("=", 1)
+                        k_clean = k_str.strip()
+                        if k_clean.startswith("_") or not re.match(r"^[A-Za-z][A-Za-z0-9_]*$", k_clean):
+                            raise UnsafeDRLExpressionError(
+                                f"Tên tham số không an toàn trong {m_ins.group(1)}() của luật '{rule_name}': {k_clean}"
+                            )
+                        SafeASTEvaluator.validate(v_str.strip())
+                    else:
+                        SafeASTEvaluator.validate(pair.strip())
+                continue
+
+            if re.match(r"^(?:delete|retract)\s*\(\s*(\$[A-Za-z_][A-Za-z0-9_]*)\s*\)$", stmt):
+                continue
+
+            m_helper = re.match(
+                r"^(addReason|addRecommendation|addFlag)\s*\(\s*(\$[A-Za-z_][A-Za-z0-9_]*)\s*,\s*(.*)\)$",
+                stmt,
+                re.DOTALL,
+            )
+            if m_helper:
+                SafeASTEvaluator.validate(m_helper.group(3).strip())
+                continue
+
+            raise UnsafeDRLExpressionError(
+                f"Chặn câu lệnh RHS không thuộc chuẩn DRL an toàn trong luật '{rule_name}': {stmt}"
+            )
 
     def _parse_lhs(self, lhs_text: str) -> List[PatternCondition]:
         patterns: List[PatternCondition] = []
@@ -746,21 +1238,37 @@ class ObjectTypeNode:
 class AlphaNode:
     """
     Nut loc dieu kien don tren 1 Fact (Alpha Memory).
-    Ho tro Alpha Node Sharing: nhieu luat dung chung 1 dieu kien se chia se cung AlphaNode.
+    - Ho tro Alpha Node Sharing: nhieu luat dung chung 1 dieu kien se chia se cung AlphaNode.
+    - Ho tro Incremental Alpha Memory Cache theo `(handle_id, fact.recency)`: khong tinh lai
+      bieu thuc dieu kien cho cac Fact khong bi thay doi sau lenh `modify()`.
     """
     node_id: str
     fact_type: str
     constraint: str
     shared_by_rules: List[str] = field(default_factory=list)
     evaluated_count: int = 0
+    cache_hits: int = 0
+    cache_misses: int = 0
     passed_handles: List[int] = field(default_factory=list)
+    memory_cache: Dict[Tuple[int, int], bool] = field(default_factory=dict)
 
     def evaluate(self, handle: FactHandle) -> bool:
-        self.evaluated_count += 1
-        try:
-            res = bool(evaluate_drl_expression(self.constraint, fact_obj=handle.fact))
-        except Exception:
-            res = False
+        fact_recency = handle.fact.recency if isinstance(handle.fact, Fact) else handle.recency
+        cache_key = (handle.handle_id, fact_recency)
+        if cache_key in self.memory_cache:
+            self.cache_hits += 1
+            res = self.memory_cache[cache_key]
+        else:
+            self.cache_misses += 1
+            self.evaluated_count += 1
+            try:
+                res = bool(evaluate_drl_expression(self.constraint, fact_obj=handle.fact))
+            except UnsafeDRLExpressionError:
+                raise
+            except Exception:
+                res = False
+            self.memory_cache[cache_key] = res
+
         if res and handle.handle_id not in self.passed_handles:
             self.passed_handles.append(handle.handle_id)
         return res
@@ -797,7 +1305,7 @@ class RuleTerminalNode:
 class RetePhreakNetwork:
     """
     Do thi mang suy dien Rete / PHREAK cua Drools:
-    EntryPointNode -> ObjectTypeNode -> AlphaNode (shared) -> BetaNode -> RuleTerminalNode.
+    EntryPointNode -> ObjectTypeNode -> AlphaNode (shared + incremental cache) -> BetaNode -> RuleTerminalNode.
     """
 
     def __init__(self, rules: List[DRLRule]) -> None:
@@ -877,7 +1385,10 @@ class RetePhreakNetwork:
             otn.matched_handles.clear()
         for alpha in self.alpha_nodes.values():
             alpha.evaluated_count = 0
+            alpha.cache_hits = 0
+            alpha.cache_misses = 0
             alpha.passed_handles.clear()
+            alpha.memory_cache.clear()
         for beta in self.beta_nodes.values():
             beta.evaluated_tuples = 0
             beta.matched_tuples.clear()
@@ -893,7 +1404,7 @@ class RetePhreakNetwork:
         """
         Danh gia Working Memory qua mang Rete/PHREAK:
         1. Day Fact qua EntryPointNode -> ObjectTypeNode
-        2. Loc qua cac AlphaNode (co bo nho Alpha Memory)
+        2. Loc qua cac AlphaNode (co Incremental Alpha Memory Cache theo (handle_id, fact.recency))
         3. Ket hop qua BetaNode (Cartesian join giua cac Pattern + Beta constraints)
         4. Kich hoat RuleTerminalNode sinh danh sach (rule, matched_bindings, alpha_ids, beta_id)
         """
@@ -969,6 +1480,8 @@ class RetePhreakNetwork:
                                     ):
                                         beta_ok = False
                                         break
+                                except UnsafeDRLExpressionError:
+                                    raise
                                 except Exception:
                                     beta_ok = False
                                     break
@@ -1032,6 +1545,8 @@ class RetePhreakNetwork:
                     "shared_by_rules": alpha.shared_by_rules,
                     "is_shared": len(alpha.shared_by_rules) > 1,
                     "evaluated_count": alpha.evaluated_count,
+                    "cache_hits": alpha.cache_hits,
+                    "cache_misses": alpha.cache_misses,
                     "facts_count": len(alpha.passed_handles),
                     "active": len(alpha.passed_handles) > 0,
                 }
@@ -1083,6 +1598,9 @@ class RetePhreakNetwork:
 
         unique_alpha_count = len(self.alpha_nodes)
         shared_alpha_count = sum(1 for a in self.alpha_nodes.values() if len(a.shared_by_rules) > 1)
+        total_cache_hits = sum(a.cache_hits for a in self.alpha_nodes.values())
+        total_cache_misses = sum(a.cache_misses for a in self.alpha_nodes.values())
+        total_cache_lookups = total_cache_hits + total_cache_misses
 
         return {
             "nodes": nodes,
@@ -1093,6 +1611,13 @@ class RetePhreakNetwork:
                 "unique_alpha_nodes": unique_alpha_count,
                 "shared_alpha_nodes": shared_alpha_count,
                 "alpha_nodes_saved_by_sharing": max(0, self.total_raw_alpha_constraints - unique_alpha_count),
+                "cache_hits": total_cache_hits,
+                "cache_misses": total_cache_misses,
+                "cache_hit_rate_percent": (
+                    round((total_cache_hits / total_cache_lookups) * 100.0, 1)
+                    if total_cache_lookups > 0
+                    else 0.0
+                ),
                 "total_beta_nodes": len(self.beta_nodes),
                 "multi_fact_beta_joins": sum(1 for b in self.beta_nodes.values() if len(b.fact_types) > 1),
                 "total_terminal_nodes": len(self.terminal_nodes),
@@ -1810,6 +2335,8 @@ class KieSession:
                 target_handle.fact["risk_flags"] = flags
             return
 
+        raise UnsafeDRLExpressionError(f"Câu lệnh RHS không hợp lệ hoặc không được phép thực thi: {stmt}")
+
 
 # ============================================================================
 # 7. DICH VU DSS THAM DINH TIN DUNG & DINH GIA KHOAN VAY (CREDIT APPROVAL DSS)
@@ -1819,9 +2346,11 @@ class CreditApprovalDSS:
     """
     Dich vu He thong Ho tro Ra quyet dinh Tham dinh Tin dung & Dinh gia Khoan vay:
     - Quan ly KieBase (.drl + decision_table_rules.csv)
-    - Chuan hoa Fact Applicant, tinh toan chi so tai chinh & Radar 5 chieu
+    - Chuan hoa Fact Applicant qua StrictInputSanitizer, tinh toan chi so tai chinh,
+      mo hinh dinh luong rui ro tin dung chuan ngan hang Basel III (PD, LGD, EAD, EL, RAROC)
+      & bieu do Radar 5 chieu.
     - Ho tro 6 Kich ban Demo 1-Click, What-If & Sensitivity Analysis,
-      Batch CSV Scoring (15 ho so) va Live DRL Hot-Reload.
+      Batch CSV Scoring (15 ho so), Basel III Macro Stress-Testing & Live DRL Hot-Reload.
     """
 
     DECISION_LABELS = {
@@ -1839,6 +2368,8 @@ class CreditApprovalDSS:
         "TIER_D": "Hạng D – Rủi ro cao",
         "UNRATED": "Chưa xếp hạng",
     }
+
+    TIER_ORDER = ["TIER_A", "TIER_B", "TIER_C", "TIER_D"]
 
     def __init__(
         self,
@@ -1877,31 +2408,25 @@ class CreditApprovalDSS:
 
     @staticmethod
     def build_applicant_fact(payload: Dict[str, Any]) -> Fact:
-        """Chuan hoa du lieu dau vao thanh Fact Applicant day du cac truong chuan DRL."""
-        def _to_bool(val: Any) -> bool:
-            if isinstance(val, bool):
-                return val
-            return str(val).strip().lower() in ("true", "1", "yes", "y")
-
-        loan_amount = float(payload.get("loan_amount", 200.0))
-        loan_term_months = max(1, int(payload.get("loan_term_months", 36)))
-        monthly_income = max(0.1, float(payload.get("monthly_income", 25.0)))
-        collateral_value = float(payload.get("collateral_value", 0.0))
-
+        """
+        Chuan hoa du lieu dau vao qua StrictInputSanitizer thanh Fact Applicant day du cac truong chuan DRL.
+        Chong chia cho 0 tuyet doi (`loan_term_months >= 1`, `monthly_income >= 0.1`, `loan_amount >= 1.0`).
+        """
+        clean = StrictInputSanitizer.sanitize_applicant(payload)
         return Fact(
             fact_type="Applicant",
-            applicant_id=str(payload.get("applicant_id", "APP_DEMO")),
-            full_name=str(payload.get("full_name", "Khách hàng Demo")),
-            age=int(payload.get("age", 32)),
-            monthly_income=round(monthly_income, 2),
-            employment_years=round(float(payload.get("employment_years", 3.0)), 2),
-            credit_score=int(payload.get("credit_score", 720)),
-            dti_ratio=round(float(payload.get("dti_ratio", 30.0)), 2),
-            loan_amount=round(loan_amount, 2),
-            loan_term_months=loan_term_months,
-            collateral_value=round(collateral_value, 2),
-            cic_bad_debt=_to_bool(payload.get("cic_bad_debt", False)),
-            is_vip=_to_bool(payload.get("is_vip", False)),
+            applicant_id=clean["applicant_id"],
+            full_name=clean["full_name"],
+            age=clean["age"],
+            monthly_income=clean["monthly_income"],
+            employment_years=clean["employment_years"],
+            credit_score=clean["credit_score"],
+            dti_ratio=clean["dti_ratio"],
+            loan_amount=clean["loan_amount"],
+            loan_term_months=clean["loan_term_months"],
+            collateral_value=clean["collateral_value"],
+            cic_bad_debt=clean["cic_bad_debt"],
+            is_vip=clean["is_vip"],
             eligible=False,
             secured_loan=False,
             composite_score=0,
@@ -1916,8 +2441,8 @@ class CreditApprovalDSS:
             reasons=[],
             recommendations=[],
             risk_flags=[],
-            scenario_tag=str(payload.get("scenario_tag", "CUSTOM")),
-            notes=str(payload.get("notes", "")),
+            scenario_tag=clean["scenario_tag"],
+            notes=clean["notes"],
         )
 
     @staticmethod
@@ -1930,6 +2455,91 @@ class CreditApprovalDSS:
         r = (annual_rate_percent / 100.0) / 12.0
         payment = principal * (r * (1 + r) ** months) / (((1 + r) ** months) - 1)
         return round(payment, 2)
+
+    @staticmethod
+    def compute_basel_iii_metrics(final_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Tinh toan day du cac chi so dinh luong rui ro tin dung chuan ngan hang Basel III
+        dua tren ket qua suy dien cua Drools:
+        - pd_percent   : Probability of Default (12M, %) theo RiskTier & Composite Score
+        - lgd_percent  : Loss Given Default (%) theo ty le bao phu Tai san dam bao (TSDB)
+        - ead_amount   : Exposure at Default = Approved Amount (Trieu VND)
+        - expected_loss: EL = (PD / 100) * (LGD / 100) * EAD (Trieu VND)
+        - raroc_percent: Risk-Adjusted Return on Capital (%) tren Von Kinh te (CAR 10.5% * RWA)
+        """
+        tier = str(final_data.get("risk_tier", "TIER_D"))
+        score = float(final_data.get("composite_score", 0))
+        cic_bad = bool(final_data.get("cic_bad_debt", False))
+        secured = bool(final_data.get("secured_loan", False))
+        is_vip = bool(final_data.get("is_vip", False))
+
+        loan_amt = max(1.0, float(final_data.get("loan_amount", 1.0)))
+        col_val = max(0.0, float(final_data.get("collateral_value", 0.0)))
+        approved_amt = max(0.0, float(final_data.get("approved_amount", 0.0)))
+        rate_pct = max(0.0, float(final_data.get("interest_rate", 0.0)))
+
+        # 1. PD (Probability of Default - %) anh xa don dieu tu RiskTier & Composite Score
+        if tier == "TIER_A":
+            pd_pct = max(0.35, 1.25 - max(0.0, score - 80.0) * 0.035)
+        elif tier == "TIER_B":
+            pd_pct = max(1.50, 3.50 - max(0.0, score - 60.0) * 0.08)
+        elif tier == "TIER_C":
+            pd_pct = max(4.80, 9.00 - max(0.0, score - 40.0) * 0.16)
+        else:
+            if cic_bad:
+                pd_pct = min(45.0, 32.0 + max(0.0, 30.0 - score) * 0.40)
+            else:
+                pd_pct = min(35.0, 18.0 + max(0.0, 40.0 - score) * 0.45)
+        pd_percent = round(pd_pct, 2)
+
+        # 2. LGD (Loss Given Default - %) theo ty le bao phu TSDB (Basel III Retail LGD floor 10%, unsecured 45%)
+        cov_ratio = col_val / loan_amt
+        if cov_ratio <= 0.0:
+            lgd_pct = 45.0
+        elif cov_ratio < 1.2:
+            lgd_pct = 45.0 - (cov_ratio / 1.2) * 25.0
+        elif cov_ratio < 1.5:
+            lgd_pct = 20.0 - ((cov_ratio - 1.2) / 0.3) * 10.0
+        else:
+            lgd_pct = 10.0
+        lgd_percent = round(max(10.0, min(45.0, lgd_pct)), 2)
+
+        # 3. EAD (Exposure at Default = Approved Amount) & Expected Loss (EL = PD * LGD * EAD)
+        ead_amount = round(approved_amt, 2)
+        expected_loss = round((pd_percent / 100.0) * (lgd_percent / 100.0) * ead_amount, 4)
+
+        # 4. Risk-Weighted Assets (RWA), Economic Capital (Basel III CAR 8% + CCB 2.5% = 10.5%) & RAROC
+        if tier == "TIER_A":
+            risk_weight = 0.35 if secured else 0.50
+        elif tier == "TIER_B":
+            risk_weight = 0.50 if secured else 0.75
+        elif tier == "TIER_C":
+            risk_weight = 0.75 if secured else 1.00
+        else:
+            risk_weight = 1.50
+
+        if ead_amount > 0.0 and rate_pct > 0.0:
+            rwa_amount = round(ead_amount * risk_weight, 2)
+            economic_capital = round(max(0.01 * ead_amount, rwa_amount * 0.105), 4)
+            funding_and_opex_rate = 0.047 if is_vip else 0.050
+            net_interest_spread = ((rate_pct / 100.0) - funding_and_opex_rate) * ead_amount
+            risk_adjusted_return = net_interest_spread - expected_loss
+            raroc_percent = round((risk_adjusted_return / economic_capital) * 100.0, 2)
+        else:
+            rwa_amount = 0.0
+            economic_capital = 0.0
+            raroc_percent = 0.0
+
+        return {
+            "pd_percent": pd_percent,
+            "lgd_percent": lgd_percent,
+            "ead_amount": ead_amount,
+            "expected_loss": expected_loss,
+            "risk_weight_percent": round(risk_weight * 100.0, 1),
+            "rwa_amount": rwa_amount,
+            "economic_capital": economic_capital,
+            "raroc_percent": raroc_percent,
+        }
 
     @staticmethod
     def compute_radar_dimensions(app_data: Dict[str, Any]) -> Dict[str, int]:
@@ -1964,7 +2574,7 @@ class CreditApprovalDSS:
         }
 
     def evaluate_applicant(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Chay phien suy dien Drools KieSession day du cho 1 ho so khach hang."""
+        """Chay phien suy dien Drools KieSession day du kem chi so Basel III cho 1 ho so khach hang."""
         session = self.kie_base.new_kie_session()
         app_fact = self.build_applicant_fact(payload)
         session.insert(app_fact)
@@ -1976,7 +2586,7 @@ class CreditApprovalDSS:
             annual_rate_percent=final_data["interest_rate"],
             months=final_data["loan_term_months"],
         )
-        loan_amt = max(0.01, float(final_data["loan_amount"]))
+        loan_amt = max(1.0, float(final_data["loan_amount"]))
         collateral_ratio = round((float(final_data["collateral_value"]) / loan_amt) * 100.0, 1)
         approval_ratio = round((float(final_data["approved_amount"]) / loan_amt) * 100.0, 1)
 
@@ -1989,6 +2599,7 @@ class CreditApprovalDSS:
         else:
             post_loan_dti = final_data["dti_ratio"]
 
+        basel = self.compute_basel_iii_metrics(final_data)
         radar = self.compute_radar_dimensions(final_data)
 
         return {
@@ -2005,6 +2616,14 @@ class CreditApprovalDSS:
                 "estimated_monthly_payment": monthly_payment,
                 "collateral_coverage_percent": collateral_ratio,
                 "post_decision_dti": post_loan_dti,
+                "pd_percent": basel["pd_percent"],
+                "lgd_percent": basel["lgd_percent"],
+                "ead_amount": basel["ead_amount"],
+                "expected_loss": basel["expected_loss"],
+                "raroc_percent": basel["raroc_percent"],
+                "risk_weight_percent": basel["risk_weight_percent"],
+                "rwa_amount": basel["rwa_amount"],
+                "economic_capital": basel["economic_capital"],
                 "eligible": final_data["eligible"],
                 "secured_loan": final_data["secured_loan"],
                 "independent_valuation_required": final_data["independent_valuation_required"],
@@ -2014,6 +2633,7 @@ class CreditApprovalDSS:
                 "recommendations": final_data["recommendations"],
                 "risk_flags": final_data["risk_flags"],
             },
+            "basel_iii": basel,
             "radar_dimensions": radar,
             "engine": engine_result,
         }
@@ -2073,6 +2693,12 @@ class CreditApprovalDSS:
                     - base_res["summary"]["estimated_monthly_payment"],
                     2,
                 ),
+                "expected_loss_delta": round(
+                    whatif_res["summary"]["expected_loss"] - base_res["summary"]["expected_loss"], 4
+                ),
+                "raroc_delta": round(
+                    whatif_res["summary"]["raroc_percent"] - base_res["summary"]["raroc_percent"], 2
+                ),
                 "tier_changed": base_res["summary"]["risk_tier"] != whatif_res["summary"]["risk_tier"],
                 "decision_changed": base_res["summary"]["decision"] != whatif_res["summary"]["decision"],
                 "added_rules": added_rules,
@@ -2115,7 +2741,7 @@ class CreditApprovalDSS:
         return all_rows[:6]
 
     def evaluate_batch(self, applicants: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
-        """Cham diem hang loat danh muc ho so (Batch DSS Scoring) qua Drools Engine."""
+        """Cham diem hang loat danh muc ho so (Batch DSS Scoring) kem chi so Basel III qua Drools Engine."""
         records = applicants if applicants is not None else self.load_sample_applicants()
         results: List[Dict[str, Any]] = []
         decision_counts: Dict[str, int] = {
@@ -2132,7 +2758,13 @@ class CreditApprovalDSS:
         }
         total_requested = 0.0
         total_approved = 0.0
+        total_expected_loss = 0.0
+        total_rwa = 0.0
+        total_ec = 0.0
+        total_net_return = 0.0
         rates: List[float] = []
+        pds: List[float] = []
+        lgds: List[float] = []
 
         for item in records:
             res = self.evaluate_applicant(item)
@@ -2144,8 +2776,17 @@ class CreditApprovalDSS:
             tier_counts[tier] = tier_counts.get(tier, 0) + 1
             total_requested += float(app["loan_amount"])
             total_approved += float(summ["approved_amount"])
-            if summ["interest_rate"] > 0:
+            total_expected_loss += float(summ["expected_loss"])
+            total_rwa += float(summ["rwa_amount"])
+            total_ec += float(summ["economic_capital"])
+            pds.append(float(summ["pd_percent"]))
+            lgds.append(float(summ["lgd_percent"]))
+
+            if summ["interest_rate"] > 0 and summ["ead_amount"] > 0:
                 rates.append(float(summ["interest_rate"]))
+                cof_rate = 0.047 if app["is_vip"] else 0.050
+                spread = ((float(summ["interest_rate"]) / 100.0) - cof_rate) * float(summ["ead_amount"])
+                total_net_return += spread - float(summ["expected_loss"])
 
             results.append(
                 {
@@ -2166,6 +2807,11 @@ class CreditApprovalDSS:
                     "approved_amount": summ["approved_amount"],
                     "interest_rate": summ["interest_rate"],
                     "estimated_monthly_payment": summ["estimated_monthly_payment"],
+                    "pd_percent": summ["pd_percent"],
+                    "lgd_percent": summ["lgd_percent"],
+                    "ead_amount": summ["ead_amount"],
+                    "expected_loss": summ["expected_loss"],
+                    "raroc_percent": summ["raroc_percent"],
                     "fired_rules": res["engine"]["fired_rules"],
                     "total_cycles": res["engine"]["total_cycles"],
                     "scenario_tag": app.get("scenario_tag", ""),
@@ -2174,6 +2820,10 @@ class CreditApprovalDSS:
             )
 
         avg_rate = round(sum(rates) / len(rates), 2) if rates else 0.0
+        avg_pd = round(sum(pds) / len(pds), 2) if pds else 0.0
+        avg_lgd = round(sum(lgds) / len(lgds), 2) if lgds else 0.0
+        portfolio_raroc = round((total_net_return / total_ec) * 100.0, 2) if total_ec > 0 else 0.0
+
         return {
             "total_applicants": len(results),
             "decision_counts": decision_counts,
@@ -2184,5 +2834,163 @@ class CreditApprovalDSS:
                 round((total_approved / total_requested) * 100.0, 1) if total_requested > 0 else 0.0
             ),
             "average_interest_rate": avg_rate,
+            "average_pd_percent": avg_pd,
+            "average_lgd_percent": avg_lgd,
+            "total_expected_loss": round(total_expected_loss, 4),
+            "total_rwa_amount": round(total_rwa, 2),
+            "total_economic_capital": round(total_ec, 4),
+            "portfolio_raroc_percent": portfolio_raroc,
             "items": results,
+        }
+
+    def run_portfolio_stress_test(
+        self,
+        income_shock_pct: float = -20.0,
+        collateral_shock_pct: float = -25.0,
+        dti_shock_pts: float = 12.0,
+        applicants: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Mo phong cu soc kinh te vi mo theo chuan Basel III Stress Testing tren toan bo danh muc ho so
+        va xuat Ma tran Dich chuyen Hang Rui ro (4x4 Risk Migration Matrix: TIER_A..TIER_D).
+        Chap nhan linh hoat ca dau am (-20.0) va do lon duong (20.0) cho ty le sut giam thu nhap / TSDB.
+        """
+        records = applicants if applicants is not None else self.load_sample_applicants()
+
+        inc_drop_pct = min(95.0, max(0.0, abs(float(income_shock_pct))))
+        col_drop_pct = min(100.0, max(0.0, abs(float(collateral_shock_pct))))
+        dti_add_pts = max(0.0, abs(float(dti_shock_pts)))
+
+        inc_factor = 1.0 - (inc_drop_pct / 100.0)
+        col_factor = 1.0 - (col_drop_pct / 100.0)
+
+        stressed_records: List[Dict[str, Any]] = []
+        for rec in records:
+            shocked = copy.deepcopy(rec)
+            base_inc = StrictInputSanitizer.to_float(rec.get("monthly_income"), 25.0, min_val=0.1)
+            base_col = StrictInputSanitizer.to_float(rec.get("collateral_value"), 0.0, min_val=0.0)
+            base_dti = StrictInputSanitizer.to_float(rec.get("dti_ratio"), 30.0, min_val=0.0)
+
+            shocked["monthly_income"] = round(max(0.1, base_inc * inc_factor), 2)
+            shocked["collateral_value"] = round(max(0.0, base_col * col_factor), 2)
+            shocked["dti_ratio"] = round(min(500.0, base_dti + dti_add_pts), 2)
+            stressed_records.append(shocked)
+
+        baseline_batch = self.evaluate_batch(records)
+        stressed_batch = self.evaluate_batch(stressed_records)
+
+        tiers = list(self.TIER_ORDER)
+        tier_rank = {t: idx for idx, t in enumerate(tiers)}
+        risk_migration_matrix: Dict[str, Dict[str, int]] = {
+            from_t: {to_t: 0 for to_t in tiers} for from_t in tiers
+        }
+        decision_keys = ["APPROVED", "CONDITIONAL_APPROVAL", "MANUAL_REVIEW", "REJECTED"]
+        decision_migration_matrix: Dict[str, Dict[str, int]] = {
+            from_d: {to_d: 0 for to_d in decision_keys} for from_d in decision_keys
+        }
+
+        downgraded_count = 0
+        decision_changed_count = 0
+        newly_rejected_count = 0
+        applicant_impacts: List[Dict[str, Any]] = []
+
+        for base_item, stress_item in zip(baseline_batch["items"], stressed_batch["items"]):
+            b_tier = base_item["risk_tier"] if base_item["risk_tier"] in tier_rank else "TIER_D"
+            s_tier = stress_item["risk_tier"] if stress_item["risk_tier"] in tier_rank else "TIER_D"
+            risk_migration_matrix[b_tier][s_tier] += 1
+
+            b_dec = base_item["decision"]
+            s_dec = stress_item["decision"]
+            if b_dec in decision_migration_matrix and s_dec in decision_migration_matrix[b_dec]:
+                decision_migration_matrix[b_dec][s_dec] += 1
+
+            is_downgraded = tier_rank[s_tier] > tier_rank[b_tier]
+            if is_downgraded:
+                downgraded_count += 1
+            if b_dec != s_dec:
+                decision_changed_count += 1
+            if b_dec != "REJECTED" and s_dec == "REJECTED":
+                newly_rejected_count += 1
+
+            applicant_impacts.append(
+                {
+                    "applicant_id": base_item["applicant_id"],
+                    "full_name": base_item["full_name"],
+                    "baseline_tier": b_tier,
+                    "stressed_tier": s_tier,
+                    "baseline_decision": b_dec,
+                    "stressed_decision": s_dec,
+                    "baseline_score": base_item["composite_score"],
+                    "stressed_score": stress_item["composite_score"],
+                    "baseline_approved": base_item["approved_amount"],
+                    "stressed_approved": stress_item["approved_amount"],
+                    "baseline_pd_percent": base_item["pd_percent"],
+                    "stressed_pd_percent": stress_item["pd_percent"],
+                    "baseline_el": base_item["expected_loss"],
+                    "stressed_el": stress_item["expected_loss"],
+                    "downgraded": is_downgraded,
+                    "decision_changed": b_dec != s_dec,
+                }
+            )
+
+        base_app_total = baseline_batch["total_approved_amount"]
+        stress_app_total = stressed_batch["total_approved_amount"]
+        base_el_total = baseline_batch["total_expected_loss"]
+        stress_el_total = stressed_batch["total_expected_loss"]
+
+        return {
+            "shock_parameters": {
+                "income_shock_pct": -round(inc_drop_pct, 2),
+                "collateral_shock_pct": -round(col_drop_pct, 2),
+                "dti_shock_pts": round(dti_add_pts, 2),
+            },
+            "total_applicants": baseline_batch["total_applicants"],
+            "baseline_portfolio": {
+                "decision_counts": baseline_batch["decision_counts"],
+                "tier_counts": baseline_batch["tier_counts"],
+                "total_approved_amount": base_app_total,
+                "average_pd_percent": baseline_batch["average_pd_percent"],
+                "average_lgd_percent": baseline_batch["average_lgd_percent"],
+                "total_expected_loss": base_el_total,
+                "total_rwa_amount": baseline_batch["total_rwa_amount"],
+                "total_economic_capital": baseline_batch["total_economic_capital"],
+                "portfolio_raroc_percent": baseline_batch["portfolio_raroc_percent"],
+            },
+            "stressed_portfolio": {
+                "decision_counts": stressed_batch["decision_counts"],
+                "tier_counts": stressed_batch["tier_counts"],
+                "total_approved_amount": stress_app_total,
+                "average_pd_percent": stressed_batch["average_pd_percent"],
+                "average_lgd_percent": stressed_batch["average_lgd_percent"],
+                "total_expected_loss": stress_el_total,
+                "total_rwa_amount": stressed_batch["total_rwa_amount"],
+                "total_economic_capital": stressed_batch["total_economic_capital"],
+                "portfolio_raroc_percent": stressed_batch["portfolio_raroc_percent"],
+            },
+            "impact_summary": {
+                "approved_amount_delta": round(stress_app_total - base_app_total, 2),
+                "approved_amount_change_pct": (
+                    round(((stress_app_total - base_app_total) / base_app_total) * 100.0, 2)
+                    if base_app_total > 0
+                    else 0.0
+                ),
+                "expected_loss_delta": round(stress_el_total - base_el_total, 4),
+                "expected_loss_change_pct": (
+                    round(((stress_el_total - base_el_total) / base_el_total) * 100.0, 2)
+                    if base_el_total > 0
+                    else 0.0
+                ),
+                "average_pd_delta": round(
+                    stressed_batch["average_pd_percent"] - baseline_batch["average_pd_percent"], 2
+                ),
+                "raroc_delta": round(
+                    stressed_batch["portfolio_raroc_percent"] - baseline_batch["portfolio_raroc_percent"], 2
+                ),
+                "downgraded_count": downgraded_count,
+                "decision_changed_count": decision_changed_count,
+                "newly_rejected_count": newly_rejected_count,
+            },
+            "risk_migration_matrix": risk_migration_matrix,
+            "decision_migration_matrix": decision_migration_matrix,
+            "applicant_impacts": applicant_impacts,
         }

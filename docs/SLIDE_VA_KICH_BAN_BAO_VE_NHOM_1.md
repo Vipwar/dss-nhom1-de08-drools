@@ -123,34 +123,35 @@
 
 ---
 
-### SLIDE 12: Kiến trúc Ứng dụng Demo Web FinTech DSS Dashboard
+### SLIDE 12: Kiến trúc Ứng dụng Demo Web FinTech DSS Dashboard (V3 Ultimate)
 - **Triển khai 100% tương thích Python chuẩn (`python app.py`):**
-  - Không yêu cầu cài đặt máy ảo Java/Maven phức tạp trên máy phòng thi; trực tiếp biên dịch file `rules/credit_approval.drl` và `rules/decision_table_rules.csv`.
-- **6 Phân hệ tương tác trên Giao diện Single-Page Dashboard:**
+  - Tích hợp **`SafeASTEvaluator` Sandbox** (chặn tuyệt đối Code Injection trên Live DRL Studio), **`Incremental Alpha Memory Cache`** theo `(handle_id, fact.recency)` và **`StrictInputSanitizer`** chống chia cho 0.
+- **7 Phân hệ tương tác trên Giao diện Single-Page Dashboard:**
   1. Thanh 6 Kịch bản Demo 1-Click & Bộ chọn 15 Hồ sơ CSV.
-  2. Executive Decision Card, 6 Gauges Tài chính & Biểu đồ Radar 5 Chiều.
-  3. Sơ đồ Mạng Rete / PHREAK Trực quan kèm **Step-by-Step Replay** & **Minh họa TMS (`insertLogical`)**.
+  2. Executive Decision Card, Chỉ số **Basel III (`PD`, `LGD`, `Expected Loss`, `RAROC`)** & Biểu đồ Radar 5 Chiều.
+  3. Sơ đồ Mạng Rete / PHREAK Trực quan kèm `Alpha Cache Hits`, **Step-by-Step Replay** & **Minh họa TMS (`insertLogical`)**.
   4. Bảng Nhật ký Truy vết Chu kỳ Suy diễn & Bằng chứng Hủy luật `activation-group`.
   5. Phòng Thí nghiệm **What-If & Phân tích Độ nhạy (Sensitivity Simulator)**.
-  6. **Live DRL Studio** (Sửa & biên dịch nóng `.drl` trên trình duyệt) + **Chấm điểm Danh mục 15 Hồ sơ CSV**.
+  6. **Chấm điểm Danh mục CSV (RFC 4180)** + **Mô phỏng Stress-Test Danh mục Vĩ mô Basel III (`Risk Migration Matrix 4×4`)** + **Live DRL Studio**.
+  7. Đối sánh thực nghiệm 3 bộ máy (`Drools` vs `CLIPS` vs `Prolog`), `Backward Goal-Seeker` & `Formal Rule V&V`.
 
 ---
 
-### SLIDE 13: Kết quả Thực nghiệm Danh mục 15 Hồ sơ & Kiểm thử Tự động
-- **Kết quả chạy Batch 15 Hồ sơ (`data/sample_applicants.csv`):**
+### SLIDE 13: Kết quả Thực nghiệm Danh mục 15 Hồ sơ, Stress-Testing Basel III & Kiểm thử 28/28
+- **Kết quả chạy Batch 15 Hồ sơ (`data/sample_applicants.csv`) & Stress-Testing Vĩ mô:**
   - `APPROVED`: **5 hồ sơ (33.3%)** | `CONDITIONAL_APPROVAL`: **2 hồ sơ (13.3%)**
   - `MANUAL_REVIEW`: **3 hồ sơ (20.0%)** | `REJECTED`: **5 hồ sơ (33.3%)**
-  - Kết quả máy chạy **khớp 100%** với bảng truy vết bằng tay ở mọi chu kỳ!
-- **Kiểm thử Tự động (`tests/test_drools_engine.py`):**
-  - **17/17 Unit & Integration Test Cases PASS 100%** (kiểm tra `DRLParser`, `DecisionTableLoader`, `AlphaNode Sharing`, `BetaNode Join`, `Conflict Resolution`, `no-loop`, `lock-on-active`, `TMS Auto-Retract`, 6 kịch bản, What-If, Batch và REST API).
+  - Mô phỏng cú sốc vĩ mô (`POST /api/stress-test`) xuất trực tiếp **Ma trận Dịch chuyển Hạng Rủi ro (`Risk Migration Matrix`)** và đo lường biến động `Expected Loss (EL)` & `RAROC`.
+- **Kiểm thử Tự động & Fuzzing (`tests/test_drools_engine.py`):**
+  - **28/28 Unit, Security, Basel III & Fuzzing Test Cases PASS 100%** (bao gồm kiểm thử bảo mật `SafeASTEvaluator`, `Incremental Alpha Cache`, `Basel III Stress-Test` và **Property-Based Fuzzing 100 hồ sơ ngẫu nhiên khớp 100/100 giữa Drools, CLIPS và Prolog**).
 
 ---
 
 ### SLIDE 14: Tổng kết Giá trị Học thuật & Thực tiễn của Đồ án
 - **Về mặt Lý thuyết DSS & Rule Engine:**
-  - Làm chủ trọn vẹn kiến trúc Apache KIE / Drools: từ cú pháp `.drl`, mạng Rete/PHREAK, cơ chế `agenda-group` pipeline, giải quyết xung đột `salience` + `activation-group` đến hệ thống bảo toàn chân lý `TMS (insertLogical)`.
-- **Về mặt Thực tiễn Ứng dụng:**
-  - Xây dựng một hệ thống DSS hoàn chỉnh cho bài toán Thẩm định & Định giá Tín dụng có khả năng **giải thích hộp trắng (White-box Explainability)** và **mô phỏng kịch bản What-If** giúp nâng cao chất lượng ra quyết định.
+  - Làm chủ trọn vẹn kiến trúc Apache KIE / Drools: từ cú pháp `.drl`, mạng Rete/PHREAK + Incremental Alpha Memory Cache, `SafeASTEvaluator`, cơ chế `agenda-group` pipeline, giải quyết xung đột `salience` + `activation-group` đến hệ thống bảo toàn chân lý `TMS (insertLogical)`.
+- **Về mặt Thực tiễn Ứng dụng Ngân hàng (Basel III FinTech DSS):**
+  - Xây dựng hệ thống DSS hoàn chỉnh cho bài toán Thẩm định & Định giá Tín dụng kết hợp chuẩn định lượng **Basel III (`PD`, `LGD`, `EAD`, `EL`, `RAROC`)**, **Macro Stress-Testing**, **giải thích hộp trắng** và **What-If / Goal-Seeking**.
 
 ---
 

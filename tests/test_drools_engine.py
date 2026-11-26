@@ -1,16 +1,19 @@
 """
 tests/test_drools_engine.py
 ===============================================================================
-BO KIEM THU TU DONG TOAN DIEN (22 UNIT & INTEGRATION TESTS) CHO DROOLS ENGINE,
-RULE BASE V&V, BACKWARD CHAINING GOAL-SEEKER & DOI SANH DROOLS vs CLIPS vs PROLOG
+BO KIEM THU TU DONG TOAN DIEN (28 UNIT, SECURITY, BASEL III & FUZZING TESTS)
+CHO DROOLS ENGINE, SAFE AST SANDBOX, INCREMENTAL ALPHA CACHE, BASEL III STRESS
+TEST, RULE BASE V&V, GOAL-SEEKER & DOI SANH 100% DROOLS vs CLIPS vs PROLOG
 -------------------------------------------------------------------------------
 Do an Cuoi ky Mon He thong Ho tro Ra quyet dinh (DSS) - Nhom 1 - De 08: DROOLS
 Chay bang lenh:
-    python -m unittest discover -s tests -v
+    python3 -m unittest discover -s tests -v
 ===============================================================================
 """
 
+import math
 import os
+import random
 import unittest
 
 from engine.drools_engine import (
@@ -19,6 +22,10 @@ from engine.drools_engine import (
     DRLParser,
     Fact,
     KieBase,
+    SafeASTEvaluator,
+    StrictInputSanitizer,
+    UnsafeDRLExpressionError,
+    evaluate_drl_expression,
 )
 from engine.multi_paradigm_comparator import (
     BackwardGoalSeeker,
@@ -35,7 +42,7 @@ SAMPLE_CSV_PATH = os.path.join(BASE_DIR, "data", "sample_applicants.csv")
 
 
 class TestDroolsEngineAndCreditDSS(unittest.TestCase):
-    """Bo kiem thu 22 test cases kiem chung toan bo kien truc Drools, CLIPS, Prolog & DSS."""
+    """Bo kiem thu 28 test cases kiem chung toan bo kien truc Drools V3 Ultimate, CLIPS, Prolog & Basel III DSS."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -437,8 +444,303 @@ class TestDroolsEngineAndCreditDSS(unittest.TestCase):
         self.assertTrue(os.path.exists(bat_path))
         self.assertTrue(os.path.exists(ci_path))
 
+    def test_25_safe_ast_evaluator_blocks_malicious_code_injection(self) -> None:
+        """Kiem thu SafeASTEvaluator & StrictInputSanitizer: chan tuyet doi Code Injection va chia cho 0."""
+        evaluator = SafeASTEvaluator()
+        sample_fact = self.dss.build_applicant_fact(self.applicants["APP001"])
+
+        # 1. Kiem chung bieu thuc hop le hoat dong chinh xac
+        self.assertTrue(
+            evaluator.evaluate(
+                "age >= 18 && credit_score >= 750 && ($app.is_vip == true ? 6.8 : 7.5) == 6.8",
+                fact_obj=sample_fact,
+                bindings={"$app": sample_fact},
+            )
+        )
+        self.assertEqual(
+            evaluate_drl_expression(
+                "round2($app.loan_amount * 0.8)",
+                fact_obj=sample_fact,
+                bindings={"$app": sample_fact},
+            ),
+            400.0,
+        )
+
+        # 2. Kiem chung chan tuyet doi cac payload Code Injection / Sandbox Escape
+        malicious_payloads = [
+            "__import__('os').system('echo hacked')",
+            "().__class__.__base__.__subclasses__()",
+            "open('/etc/passwd').read()",
+            "eval('2 + 2')",
+            "exec('x = 1')",
+            "$app.__class__.__init__.__globals__",
+            "$app._data",
+            "(lambda x: x + 1)(5)",
+            "[x for x in (1, 2, 3)]",
+            "2 ** 1000",
+        ]
+        for payload in malicious_payloads:
+            with self.assertRaises((UnsafeDRLExpressionError, ValueError), msg=f"Payload not blocked: {payload}"):
+                evaluator.evaluate(payload, fact_obj=sample_fact, bindings={"$app": sample_fact})
+
+        # 3. Kiem chung chan ma doc ngay khi bien dich luat trong KieBase / Live DRL Studio
+        malicious_lhs_drl = """
+        package test.sec;
+        rule "M01 - Malicious LHS"
+        when
+            $app : Applicant( __import__('os').system('id') == 0 )
+        then
+            modify($app) { composite_score = 99 }
+        end
+        """
+        with self.assertRaises(UnsafeDRLExpressionError):
+            KieBase(drl_text=malicious_lhs_drl)
+
+        malicious_rhs_drl = """
+        package test.sec;
+        rule "M02 - Malicious RHS"
+        when
+            $app : Applicant( age >= 18 )
+        then
+            __import__('os').system('id');
+        end
+        """
+        with self.assertRaises(UnsafeDRLExpressionError):
+            KieBase(drl_text=malicious_rhs_drl)
+
+        # 4. Kiem chung StrictInputSanitizer chong chia cho 0 & khu NaN/Inf
+        edge_fact = self.dss.build_applicant_fact(
+            {
+                "applicant_id": "EDGE_ZERO",
+                "age": -5,
+                "monthly_income": 0.0,
+                "loan_amount": -100.0,
+                "loan_term_months": 0,
+                "collateral_value": -50.0,
+                "dti_ratio": float("nan"),
+                "credit_score": float("inf"),
+            }
+        )
+        self.assertGreaterEqual(edge_fact.loan_term_months, 1)
+        self.assertGreaterEqual(edge_fact.monthly_income, 0.1)
+        self.assertGreaterEqual(edge_fact.loan_amount, 1.0)
+        self.assertEqual(edge_fact.collateral_value, 0.0)
+        self.assertFalse(math.isnan(edge_fact.dti_ratio))
+        edge_eval = self.dss.evaluate_applicant({"loan_term_months": 0, "monthly_income": 0, "loan_amount": 0})
+        self.assertIn(edge_eval["summary"]["decision"], ("APPROVED", "CONDITIONAL_APPROVAL", "MANUAL_REVIEW", "REJECTED"))
+
+    def test_26_incremental_alpha_memory_cache_hits(self) -> None:
+        """Kiem thu Incremental Alpha Memory Cache theo (handle_id, fact.recency) tren tung AlphaNode."""
+        # 1. Kiem chung cache_hits > 0 trong phien suy dien nhieu chu ky tieu chuan
+        eval_res = self.dss.evaluate_applicant(self.applicants["APP001"])
+        rete_stats = eval_res["engine"]["rete_network"]["stats"]
+        self.assertIn("cache_hits", rete_stats)
+        self.assertGreater(rete_stats["cache_hits"], 0)
+
+        # 2. Kiem chung chi tiet tren 2 Fact trong Working Memory: modify(h1) khong tinh lai Alpha cho h2
+        kb = KieBase(drl_path=DRL_PATH)
+        session = kb.new_kie_session()
+        net = kb.network
+        net.reset_runtime_state()
+
+        f1 = self.dss.build_applicant_fact(self.applicants["APP002"])
+        f2 = self.dss.build_applicant_fact(self.applicants["APP003"])
+        h1 = session.insert(f1)
+        h2 = session.insert(f2)
+        self.assertEqual(h1.recency, h1.fact.recency)
+        self.assertEqual(h2.recency, h2.fact.recency)
+
+        # Lan danh gia 1: tat ca deu la cache miss
+        net.evaluate_handles(list(session.handles.values()))
+        stats_1 = net.to_json()["stats"]
+        eval_count_1 = sum(a.evaluated_count for a in net.alpha_nodes.values())
+        self.assertEqual(stats_1["cache_hits"], 0)
+        self.assertGreater(eval_count_1, 0)
+
+        # Lan danh gia 2 (khong modify): 100% la cache hit, khong tang evaluated_count
+        net.evaluate_handles(list(session.handles.values()))
+        stats_2 = net.to_json()["stats"]
+        eval_count_2 = sum(a.evaluated_count for a in net.alpha_nodes.values())
+        self.assertEqual(eval_count_2, eval_count_1)
+        self.assertEqual(stats_2["cache_hits"], eval_count_1)
+
+        # Lan danh gia 3: modify(h1) tang recency cua h1, nhung h2 giu nguyen recency -> h2 tiep tuc hit cache
+        old_h1_rec = h1.fact.recency
+        old_h2_rec = h2.fact.recency
+        session.modify(h1, monthly_income=55.0)
+        self.assertGreater(h1.fact.recency, old_h1_rec)
+        self.assertEqual(h2.fact.recency, old_h2_rec)
+
+        net.evaluate_handles(list(session.handles.values()))
+        stats_3 = net.to_json()["stats"]
+        eval_count_3 = sum(a.evaluated_count for a in net.alpha_nodes.values())
+        applicant_alpha_count = sum(1 for a in net.alpha_nodes.values() if a.fact_type == "Applicant")
+        self.assertEqual(eval_count_3 - eval_count_2, applicant_alpha_count)
+        self.assertEqual(stats_3["cache_hits"] - stats_2["cache_hits"], applicant_alpha_count)
+
+    def test_27_basel_iii_metrics_and_portfolio_stress_test(self) -> None:
+        """Kiem thu chi so Basel III (PD, LGD, EAD, EL, RAROC), Stress-Testing & POST /api/stress-test."""
+        import json
+        import threading
+        import urllib.error
+        import urllib.request
+        from http.server import ThreadingHTTPServer
+        from app import DroolsDSSRequestHandler
+
+        # 1. Kiem chung chi so Basel III tren tung phan khuc ho so
+        r_vip = self.dss.evaluate_applicant(self.applicants["APP001"])["summary"]
+        r_unsec = self.dss.evaluate_applicant(self.applicants["APP003"])["summary"]
+        r_rej = self.dss.evaluate_applicant(self.applicants["APP005"])["summary"]
+
+        for key in ("pd_percent", "lgd_percent", "ead_amount", "expected_loss", "raroc_percent"):
+            self.assertIn(key, r_vip)
+
+        self.assertLess(r_vip["pd_percent"], r_unsec["pd_percent"])
+        self.assertLess(r_unsec["pd_percent"], r_rej["pd_percent"])
+        self.assertEqual(r_vip["lgd_percent"], 10.0)
+        self.assertEqual(r_unsec["lgd_percent"], 45.0)
+        self.assertEqual(r_vip["ead_amount"], 500.0)
+        self.assertAlmostEqual(
+            r_vip["expected_loss"],
+            round((r_vip["pd_percent"] / 100.0) * (r_vip["lgd_percent"] / 100.0) * r_vip["ead_amount"], 4),
+            places=4,
+        )
+        self.assertGreater(r_vip["raroc_percent"], 15.0)
+        self.assertEqual(r_rej["ead_amount"], 0.0)
+        self.assertEqual(r_rej["expected_loss"], 0.0)
+        self.assertEqual(r_rej["raroc_percent"], 0.0)
+
+        # 2. Kiem chung run_portfolio_stress_test tren 15 ho so CSV
+        zero_stress = self.dss.run_portfolio_stress_test(0.0, 0.0, 0.0)
+        self.assertEqual(zero_stress["impact_summary"]["downgraded_count"], 0)
+
+        adverse = self.dss.run_portfolio_stress_test(
+            income_shock_pct=-25.0,
+            collateral_shock_pct=-30.0,
+            dti_shock_pts=15.0,
+        )
+        self.assertEqual(adverse["total_applicants"], 15)
+        matrix = adverse["risk_migration_matrix"]
+        total_cells = sum(
+            matrix[r][c]
+            for r in ("TIER_A", "TIER_B", "TIER_C", "TIER_D")
+            for c in ("TIER_A", "TIER_B", "TIER_C", "TIER_D")
+        )
+        self.assertEqual(total_cells, 15)
+        self.assertLess(
+            adverse["stressed_portfolio"]["total_approved_amount"],
+            adverse["baseline_portfolio"]["total_approved_amount"],
+        )
+        self.assertGreater(
+            adverse["stressed_portfolio"]["average_pd_percent"],
+            adverse["baseline_portfolio"]["average_pd_percent"],
+        )
+        self.assertGreater(adverse["impact_summary"]["downgraded_count"], 0)
+
+        # 3. Kiem chung REST API POST /api/stress-test & chan Code Injection qua /api/rules/compile
+        server = ThreadingHTTPServer(("127.0.0.1", 0), DroolsDSSRequestHandler)
+        port = server.server_address[1]
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        try:
+            base_url = f"http://127.0.0.1:{port}"
+            req_st = urllib.request.Request(
+                f"{base_url}/api/stress-test",
+                data=json.dumps(
+                    {
+                        "income_shock_pct": -20.0,
+                        "collateral_shock_pct": -25.0,
+                        "dti_shock_pts": 12.0,
+                    }
+                ).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req_st) as resp:
+                self.assertEqual(resp.status, 200)
+                st_json = json.loads(resp.read().decode("utf-8"))
+                self.assertEqual(st_json["status"], "OK")
+                self.assertIn("risk_migration_matrix", st_json["stress_test"])
+
+            bad_drl = 'package p;\nrule "Bad"\nwhen\n $a : Applicant( __import__("os").system("id") == 0 )\nthen\nend'
+            req_bad = urllib.request.Request(
+                f"{base_url}/api/rules/compile",
+                data=json.dumps({"drl_source": bad_drl}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with self.assertRaises(urllib.error.HTTPError) as ctx:
+                urllib.request.urlopen(req_bad)
+            self.assertEqual(ctx.exception.code, 400)
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_28_property_based_fuzzing_100_random_applicants_3_engine_equivalence(self) -> None:
+        """Kiem thu Property-Based Fuzzing 100 ho so ngau nhien: Drools, CLIPS va Prolog khop 100/100 (100%)."""
+        rng = random.Random(20260808)
+        matched_count = 0
+
+        for i in range(1, 101):
+            # Ket hop ngau nhien mien lien tuc + cac diem bien nhay cam (18, 65, 750, 35%, 45%, 65%, 1.2x TSDB)
+            age = rng.choice([16, 17, 18, 25, 35, 50, 65, 66, 72]) if i % 5 == 0 else rng.randint(15, 75)
+            income = rng.choice([0.0, 8.5, 9.99, 10.0, 29.99, 30.0, 55.0]) if i % 4 == 0 else round(rng.uniform(0.5, 120.0), 2)
+            emp_years = rng.choice([0.0, 0.8, 1.0, 1.9, 2.0, 5.5]) if i % 4 == 1 else round(rng.uniform(0.0, 25.0), 2)
+            credit_score = rng.choice([300, 580, 749, 750, 810, 850]) if i % 3 == 0 else rng.randint(300, 850)
+            dti = rng.choice([0.0, 35.0, 35.01, 45.0, 45.01, 65.0, 65.01, 80.0]) if i % 3 == 1 else round(rng.uniform(5.0, 90.0), 2)
+            loan_amt = round(rng.uniform(0.0, 900.0), 2)
+            loan_term = rng.choice([0, 12, 24, 36, 48, 60, 72, 120])
+            if i % 3 == 2:
+                col_val = round(max(1.0, loan_amt) * rng.choice([0.0, 0.5, 1.19, 1.2, 1.5]), 2)
+            else:
+                col_val = round(rng.uniform(0.0, 1300.0), 2)
+
+            fuzzed_applicant = {
+                "applicant_id": f"FUZZ_{i:03d}",
+                "full_name": f"Khách hàng Fuzzing #{i}",
+                "age": age,
+                "monthly_income": income,
+                "employment_years": emp_years,
+                "credit_score": credit_score,
+                "dti_ratio": dti,
+                "loan_amount": loan_amt,
+                "loan_term_months": loan_term,
+                "collateral_value": col_val,
+                "cic_bad_debt": rng.choice([True, False]),
+                "is_vip": rng.choice([True, False]),
+            }
+
+            eval_res = self.dss.evaluate_applicant(fuzzed_applicant)
+            summ = eval_res["summary"]
+            cycles = eval_res["engine"]["total_cycles"]
+            self.assertGreaterEqual(cycles, 1)
+            self.assertLessEqual(cycles, 15)
+            self.assertGreater(summ["pd_percent"], 0.0)
+            self.assertGreaterEqual(summ["lgd_percent"], 10.0)
+            self.assertLessEqual(summ["lgd_percent"], 45.0)
+            self.assertGreaterEqual(summ["expected_loss"], 0.0)
+
+            cmp_res = self.comparator.compare_on_applicant(fuzzed_applicant)
+            self.assertTrue(
+                cmp_res["consensus_verified"],
+                f"Sai lech giua Drools, CLIPS va Prolog tai ho so ngau nhien {fuzzed_applicant}: {cmp_res}",
+            )
+            self.assertEqual(
+                cmp_res["drools"]["rejection_code"],
+                cmp_res["clips"]["rejection_code"],
+            )
+            self.assertEqual(
+                cmp_res["drools"]["rejection_code"],
+                cmp_res["prolog"]["rejection_code"],
+            )
+            matched_count += 1
+
+        self.assertEqual(matched_count, 100)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
 
 

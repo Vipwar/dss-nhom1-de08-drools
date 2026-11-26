@@ -16,6 +16,7 @@ const STATE = {
   ruleVerification: null,
   currentComparison: null,
   currentGoalSeek: null,
+  currentStressTest: null,
   clipsSource: "",
   prologSource: "",
   replayStepIndex: -1,
@@ -118,13 +119,14 @@ async function loadOverviewData() {
     STATE.ruleVerification = data.rule_verification || null;
     STATE.currentComparison = data.initial_comparison || null;
     STATE.currentGoalSeek = data.initial_goal_seek || null;
+    STATE.currentStressTest = data.initial_stress_test || null;
     STATE.clipsSource = data.clips_source || "";
     STATE.prologSource = data.prolog_source || "";
     STATE.javaKieSource = data.java_kie_source || "";
 
     const badge = document.getElementById("headerEngineBadge");
     if (badge && data.project) {
-      badge.textContent = `KieBase: ${data.project.total_rules} Rules Verified (V&V 100%)`;
+      badge.textContent = `KieBase: ${data.project.total_rules} Rules • SafeAST • Basel III Ready`;
     }
 
     const drlEditor = document.getElementById("drlSourceEditor");
@@ -145,6 +147,7 @@ async function loadOverviewData() {
     renderRuleVerificationMatrix();
     if (STATE.currentComparison) renderMultiParadigmComparison(STATE.currentComparison);
     if (STATE.currentGoalSeek) renderGoalSeekingResult(STATE.currentGoalSeek);
+    if (STATE.currentStressTest) renderStressTestResult(STATE.currentStressTest);
 
     if (STATE.presets.length > 0) {
       populateFormWithApplicant(STATE.presets[0]);
@@ -180,6 +183,7 @@ function switchTab(tabName) {
     runWhatIfSimulation();
   } else if (tabName === "batch") {
     loadBatchEvaluation();
+    runPortfolioStressTest();
   } else if (tabName === "paradigms") {
     runMultiParadigmComparison();
     runGoalSeekingQuery();
@@ -196,6 +200,7 @@ function toggleFullPageMode() {
     });
     runWhatIfSimulation();
     loadBatchEvaluation();
+    runPortfolioStressTest();
     runMultiParadigmComparison();
     runGoalSeekingQuery();
   } else {
@@ -407,6 +412,58 @@ function renderEvaluationResult(evalData) {
   document.getElementById("metricFiredRulesChain").textContent =
     eng.fired_rules.length > 0 ? eng.fired_rules.join(" → ") : "Không có luật kích hoạt";
 
+  // Cap nhat cac chi so dinh luong rui ro tin dung Basel III tren Executive Decision Card
+  const basel = evalData.basel_iii || sum;
+  const pdVal = Number(basel.pd_percent ?? sum.pd_percent ?? 0);
+  const lgdVal = Number(basel.lgd_percent ?? sum.lgd_percent ?? 0);
+  const eadVal = Number(basel.ead_amount ?? sum.ead_amount ?? sum.approved_amount ?? 0);
+  const elVal = Number(basel.expected_loss ?? sum.expected_loss ?? 0);
+  const rarocVal = Number(basel.raroc_percent ?? sum.raroc_percent ?? 0);
+  const rwVal = Number(basel.risk_weight_percent ?? sum.risk_weight_percent ?? 100);
+  const rwaVal = Number(basel.rwa_amount ?? sum.rwa_amount ?? 0);
+  const ecVal = Number(basel.economic_capital ?? sum.economic_capital ?? 0);
+
+  const elPd = document.getElementById("metricBaselPd");
+  if (elPd) elPd.textContent = `${pdVal.toFixed(2)}%`;
+  const elPdNote = document.getElementById("metricBaselPdNote");
+  if (elPdNote) {
+    elPdNote.textContent =
+      pdVal <= 1.5
+        ? "Rủi ro vỡ nợ rất thấp (Investment Grade)"
+        : pdVal <= 4.0
+        ? "Rủi ro vỡ nợ thấp – trung bình"
+        : pdVal <= 10.0
+        ? "Cần giám sát rủi ro (Watchlist)"
+        : "Nguy cơ vỡ nợ cao (High Default Risk)";
+    elPdNote.className =
+      pdVal <= 4.0
+        ? "text-[11px] text-emerald-700 font-medium mt-0.5"
+        : pdVal <= 10.0
+        ? "text-[11px] text-amber-700 font-medium mt-0.5"
+        : "text-[11px] text-rose-700 font-medium mt-0.5";
+  }
+
+  const elLgd = document.getElementById("metricBaselLgd");
+  if (elLgd) elLgd.textContent = `${lgdVal.toFixed(2)}%`;
+  const elEad = document.getElementById("metricBaselEad");
+  if (elEad) elEad.textContent = `EAD: ${eadVal.toFixed(1)} triệu`;
+
+  const elEl = document.getElementById("metricBaselEl");
+  if (elEl) elEl.textContent = `${elVal.toFixed(2)} triệu`;
+  const elRwa = document.getElementById("metricBaselRwa");
+  if (elRwa) elRwa.textContent = `RWA: ${rwaVal.toFixed(1)} tr (RW ${rwVal.toFixed(0)}%)`;
+
+  const elRaroc = document.getElementById("metricBaselRaroc");
+  if (elRaroc) {
+    elRaroc.textContent = eadVal > 0 ? `${rarocVal.toFixed(2)}%` : "— (0.00%)";
+    elRaroc.className =
+      eadVal > 0 && rarocVal >= 15.0
+        ? "text-base sm:text-lg font-extrabold text-teal-700 font-mono mt-0.5"
+        : "text-base sm:text-lg font-extrabold text-slate-500 font-mono mt-0.5";
+  }
+  const elEc = document.getElementById("metricBaselEc");
+  if (elEc) elEc.textContent = `Vốn kinh tế EC: ${ecVal.toFixed(2)} tr`;
+
   const reasonsList = document.getElementById("execReasonsList");
   reasonsList.innerHTML = (sum.reasons || [])
     .map(
@@ -542,10 +599,10 @@ function renderReteVisualizer(evalData) {
       </div>
 
       <div class="pipeline-node active-glow">
-        <div class="text-[11px] font-bold uppercase text-sky-700">2. Alpha Network (Sharing)</div>
+        <div class="text-[11px] font-bold uppercase text-sky-700">2. Alpha Network (Sharing + Cache)</div>
         <div class="text-sm font-extrabold text-slate-900 mt-0.5">${activeAlphaCount} / ${stats.unique_alpha_nodes} AlphaNodes Khớp</div>
         <div class="text-[11px] text-emerald-700 font-semibold mt-0.5">
-          Chia sẻ nút tiết kiệm ${stats.alpha_nodes_saved_by_sharing} phép lọc đơn
+          Tiết kiệm ${stats.alpha_nodes_saved_by_sharing} nút • Cache Hits: ${stats.cache_hits ?? 0} (${stats.cache_hit_rate_percent ?? 0}%)
         </div>
       </div>
 
@@ -1171,28 +1228,33 @@ function renderBatchPortfolio(batch) {
     kpiBox.innerHTML = `
       <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50">
         <div class="text-xs font-semibold text-slate-500">Tổng số Hồ sơ CSV</div>
-        <div class="text-2xl font-extrabold text-slate-900 font-mono mt-0.5">${batch.total_applicants} hồ sơ</div>
-        <div class="text-xs text-slate-600 mt-0.5">Tổng cầu vay: ${batch.total_requested_amount} triệu</div>
+        <div class="text-xl font-extrabold text-slate-900 font-mono mt-0.5">${batch.total_applicants} hồ sơ</div>
+        <div class="text-xs text-slate-600 mt-0.5">Duyệt: ${batch.total_approved_amount} / ${batch.total_requested_amount} tr</div>
       </div>
       <div class="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/70">
-        <div class="text-xs font-semibold text-emerald-800">Phê duyệt Tự động (APPROVED)</div>
-        <div class="text-2xl font-extrabold text-emerald-900 font-mono mt-0.5">${dc.APPROVED || 0} hồ sơ</div>
+        <div class="text-xs font-semibold text-emerald-800">Phê duyệt (APPROVED)</div>
+        <div class="text-xl font-extrabold text-emerald-900 font-mono mt-0.5">${dc.APPROVED || 0} hồ sơ</div>
         <div class="text-xs text-emerald-700 mt-0.5">Hạng A & Hạng B có TSĐB</div>
       </div>
       <div class="p-3.5 rounded-xl border border-amber-200 bg-amber-50/70">
-        <div class="text-xs font-semibold text-amber-800">Duyệt có Điều kiện (CONDITIONAL)</div>
-        <div class="text-2xl font-extrabold text-amber-900 font-mono mt-0.5">${dc.CONDITIONAL_APPROVAL || 0} hồ sơ</div>
+        <div class="text-xs font-semibold text-amber-800">Có Điều kiện (CONDITIONAL)</div>
+        <div class="text-xl font-extrabold text-amber-900 font-mono mt-0.5">${dc.CONDITIONAL_APPROVAL || 0} hồ sơ</div>
         <div class="text-xs text-amber-700 mt-0.5">Hạng B vay tín chấp (80%)</div>
       </div>
       <div class="p-3.5 rounded-xl border border-sky-200 bg-sky-50/70">
-        <div class="text-xs font-semibold text-sky-800">Thẩm định Thủ công (MANUAL)</div>
-        <div class="text-2xl font-extrabold text-sky-900 font-mono mt-0.5">${dc.MANUAL_REVIEW || 0} hồ sơ</div>
+        <div class="text-xs font-semibold text-sky-800">Thẩm định (MANUAL)</div>
+        <div class="text-xl font-extrabold text-sky-900 font-mono mt-0.5">${dc.MANUAL_REVIEW || 0} hồ sơ</div>
         <div class="text-xs text-sky-700 mt-0.5">Hạng C cần Hội đồng xem xét</div>
       </div>
       <div class="p-3.5 rounded-xl border border-rose-200 bg-rose-50/70">
         <div class="text-xs font-semibold text-rose-800">Từ chối (REJECTED)</div>
-        <div class="text-2xl font-extrabold text-rose-900 font-mono mt-0.5">${dc.REJECTED || 0} hồ sơ</div>
+        <div class="text-xl font-extrabold text-rose-900 font-mono mt-0.5">${dc.REJECTED || 0} hồ sơ</div>
         <div class="text-xs text-rose-700 mt-0.5">Knock-out Tầng 1 & Hạng D</div>
+      </div>
+      <div class="p-3.5 rounded-xl border border-teal-200 bg-teal-50/70">
+        <div class="text-xs font-semibold text-teal-800">Basel III Danh mục</div>
+        <div class="text-lg font-extrabold text-teal-950 font-mono mt-0.5">EL: ${(batch.total_expected_loss ?? 0).toFixed(2)} tr</div>
+        <div class="text-xs text-teal-800 font-mono mt-0.5">RAROC: ${(batch.portfolio_raroc_percent ?? 0).toFixed(1)}%</div>
       </div>
     `;
   }
@@ -1203,7 +1265,7 @@ function renderBatchPortfolio(batch) {
       .map(
         (item) => `
         <tr>
-          <td class="font-mono font-bold text-slate-900">${item.applicant_id}</td>
+          <td class="font-mono font-bold text-slate-900">${escapeHtml(item.applicant_id)}</td>
           <td>
             <div class="font-bold text-slate-900">${escapeHtml(item.full_name)}</div>
             <div class="text-[11px] text-slate-500">${escapeHtml(item.scenario_tag)}</div>
@@ -1223,11 +1285,15 @@ function renderBatchPortfolio(batch) {
           <td class="font-mono text-xs font-bold">
             ${item.approved_amount} tr • ${item.interest_rate > 0 ? item.interest_rate + "%/năm" : "—"}
           </td>
-          <td class="font-mono text-[11px] text-sky-800">${item.fired_rules.join(" → ")}</td>
+          <td class="font-mono text-[11px] text-slate-700">
+            <div>PD: <strong>${Number(item.pd_percent ?? 0).toFixed(2)}%</strong> • LGD: <strong>${Number(item.lgd_percent ?? 0).toFixed(0)}%</strong></div>
+            <div>EL: <strong class="text-amber-800">${Number(item.expected_loss ?? 0).toFixed(2)}tr</strong> • RAROC: <strong class="text-teal-800">${item.approved_amount > 0 ? Number(item.raroc_percent ?? 0).toFixed(1) + "%" : "—"}</strong></div>
+          </td>
+          <td class="font-mono text-[11px] text-sky-800">${(item.fired_rules || []).join(" → ")}</td>
           <td>
             <button
               type="button"
-              onclick="inspectApplicantFromBatch('${item.applicant_id}')"
+              onclick="inspectApplicantFromBatch('${escapeHtml(item.applicant_id)}')"
               class="px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold"
             >
               Xem Truy vết
@@ -1288,6 +1354,202 @@ async function inspectApplicantFromBatch(applicantId) {
   switchTab("dashboard");
   await onSelectSampleApplicant(applicantId);
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+/* ============================================================================
+   BASEL III MACRO PORTFOLIO STRESS TESTING & RISK MIGRATION MATRIX
+   ============================================================================ */
+function applyStressPreset(presetMode) {
+  const presets = {
+    baseline: { inc: 0, col: 0, dti: 0 },
+    mild: { inc: -10, col: -15, dti: 6 },
+    adverse: { inc: -20, col: -25, dti: 12 },
+    severe: { inc: -35, col: -40, dti: 20 },
+  };
+  const cfg = presets[presetMode] || presets.adverse;
+  const elInc = document.getElementById("inp_stress_income");
+  const elCol = document.getElementById("inp_stress_collateral");
+  const elDti = document.getElementById("inp_stress_dti");
+  if (elInc) elInc.value = cfg.inc;
+  if (elCol) elCol.value = cfg.col;
+  if (elDti) elDti.value = cfg.dti;
+  updateStressSliderLabels();
+  runPortfolioStressTest();
+}
+
+function updateStressSliderLabels() {
+  const elInc = document.getElementById("inp_stress_income");
+  const elCol = document.getElementById("inp_stress_collateral");
+  const elDti = document.getElementById("inp_stress_dti");
+  const lblInc = document.getElementById("lbl_stress_income");
+  const lblCol = document.getElementById("lbl_stress_collateral");
+  const lblDti = document.getElementById("lbl_stress_dti");
+
+  if (lblInc && elInc) lblInc.textContent = `${parseFloat(elInc.value).toFixed(0)}%`;
+  if (lblCol && elCol) lblCol.textContent = `${parseFloat(elCol.value).toFixed(0)}%`;
+  if (lblDti && elDti) lblDti.textContent = `+${parseFloat(elDti.value).toFixed(1)} điểm %`;
+}
+
+function onStressSliderInput() {
+  updateStressSliderLabels();
+  runPortfolioStressTest();
+}
+
+async function runPortfolioStressTest() {
+  const elInc = document.getElementById("inp_stress_income");
+  const elCol = document.getElementById("inp_stress_collateral");
+  const elDti = document.getElementById("inp_stress_dti");
+
+  const incomeShock = elInc ? parseFloat(elInc.value) : -20.0;
+  const collateralShock = elCol ? parseFloat(elCol.value) : -25.0;
+  const dtiShock = elDti ? parseFloat(elDti.value) : 12.0;
+
+  try {
+    const resp = await fetch("/api/stress-test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        income_shock_pct: incomeShock,
+        collateral_shock_pct: collateralShock,
+        dti_shock_pts: dtiShock,
+      }),
+    });
+    const data = await resp.json();
+    if (data.status !== "OK") throw new Error(data.message || "Lỗi chạy Stress-Test");
+    STATE.currentStressTest = data.stress_test;
+    renderStressTestResult(data.stress_test);
+  } catch (err) {
+    console.error("Stress-Test error:", err);
+  }
+}
+
+function renderStressTestResult(st) {
+  if (!st) return;
+  const baseP = st.baseline_portfolio || {};
+  const stressP = st.stressed_portfolio || {};
+  const imp = st.impact_summary || {};
+  const matrix = st.risk_migration_matrix || {};
+  const tiers = ["TIER_A", "TIER_B", "TIER_C", "TIER_D"];
+
+  const kpiBox = document.getElementById("stressImpactKpis");
+  if (kpiBox) {
+    const fmtSign = (n, dec = 2) => (n > 0 ? `+${Number(n).toFixed(dec)}` : Number(n).toFixed(dec));
+    kpiBox.innerHTML = `
+      <div class="p-3 rounded-xl border border-slate-200 bg-white">
+        <div class="text-[11px] font-semibold text-slate-500">Tổng Hạn mức Duyệt</div>
+        <div class="text-base font-extrabold text-slate-900 font-mono mt-0.5">
+          ${Number(stressP.total_approved_amount ?? 0).toFixed(1)} tr
+        </div>
+        <div class="text-[11px] font-mono ${imp.approved_amount_delta < 0 ? "text-rose-700" : "text-slate-600"} mt-0.5">
+          Gốc: ${Number(baseP.total_approved_amount ?? 0).toFixed(1)}tr (${fmtSign(imp.approved_amount_delta ?? 0, 1)}tr)
+        </div>
+      </div>
+
+      <div class="p-3 rounded-xl border border-amber-200 bg-amber-50/50">
+        <div class="text-[11px] font-semibold text-amber-900">Tổn thất Dự kiến (Total EL)</div>
+        <div class="text-base font-extrabold text-amber-900 font-mono mt-0.5">
+          ${Number(stressP.total_expected_loss ?? 0).toFixed(2)} tr
+        </div>
+        <div class="text-[11px] font-mono text-amber-800 mt-0.5">
+          Gốc: ${Number(baseP.total_expected_loss ?? 0).toFixed(2)}tr (Δ ${fmtSign(imp.expected_loss_delta ?? 0, 2)}tr)
+        </div>
+      </div>
+
+      <div class="p-3 rounded-xl border border-sky-200 bg-sky-50/50">
+        <div class="text-[11px] font-semibold text-sky-900">PD Bình quân & RAROC</div>
+        <div class="text-base font-extrabold text-sky-950 font-mono mt-0.5">
+          PD: ${Number(stressP.average_pd_percent ?? 0).toFixed(2)}%
+        </div>
+        <div class="text-[11px] font-mono text-sky-800 mt-0.5">
+          RAROC: ${Number(stressP.portfolio_raroc_percent ?? 0).toFixed(1)}% (Δ ${fmtSign(imp.raroc_delta ?? 0, 1)}%)
+        </div>
+      </div>
+
+      <div class="p-3 rounded-xl border border-rose-200 bg-rose-50/60">
+        <div class="text-[11px] font-semibold text-rose-900">Hồ sơ Hạ bậc Rủi ro</div>
+        <div class="text-base font-extrabold text-rose-900 font-mono mt-0.5">
+          ${imp.downgraded_count ?? 0} / ${st.total_applicants ?? 15} hồ sơ
+        </div>
+        <div class="text-[11px] font-mono text-rose-800 mt-0.5">
+          Bị chuyển sang Từ chối: +${imp.newly_rejected_count ?? 0} HS
+        </div>
+      </div>
+    `;
+  }
+
+  const matrixBox = document.getElementById("riskMigrationMatrixBox");
+  if (matrixBox) {
+    const rowsHtml = tiers
+      .map((fromT, rIdx) => {
+        const rowObj = matrix[fromT] || {};
+        const cellsHtml = tiers
+          .map((toT, cIdx) => {
+            const count = Number(rowObj[toT] ?? 0);
+            let cellClass = "matrix-cell-zero";
+            if (count > 0) {
+              if (rIdx === cIdx) cellClass = "matrix-cell-diag";
+              else if (cIdx > rIdx) cellClass = "matrix-cell-downgrade";
+              else cellClass = "matrix-cell-upgrade";
+            }
+            return `<td class="${cellClass}">${count}</td>`;
+          })
+          .join("");
+        return `
+          <tr>
+            <th class="!bg-slate-800">${fromT}</th>
+            ${cellsHtml}
+          </tr>
+        `;
+      })
+      .join("");
+
+    matrixBox.innerHTML = `
+      <table class="migration-matrix-table">
+        <thead>
+          <tr>
+            <th>Trước \\ Sau</th>
+            ${tiers.map((t) => `<th>${t}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    `;
+  }
+
+  const listBox = document.getElementById("stressDowngradedListBox");
+  if (listBox) {
+    const affected = (st.applicant_impacts || []).filter(
+      (item) => item.downgraded || item.decision_changed
+    );
+    if (affected.length === 0) {
+      listBox.innerHTML = `
+        <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 font-medium">
+          ✓ Không có hồ sơ nào bị hạ hạng rủi ro hoặc thay đổi quyết định ở mức sốc hiện tại.
+        </div>
+      `;
+    } else {
+      listBox.innerHTML = affected
+        .map(
+          (a) => `
+          <div class="p-2 rounded-lg bg-white border ${a.downgraded ? "border-rose-200" : "border-amber-200"}">
+            <div class="flex items-center justify-between font-bold text-slate-900">
+              <span>${escapeHtml(a.applicant_id)} – ${escapeHtml(a.full_name)}</span>
+              <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-800">
+                ${a.baseline_tier} → ${a.stressed_tier}
+              </span>
+            </div>
+            <div class="font-mono text-[11px] text-slate-600 mt-0.5">
+              ${a.baseline_decision} → <strong class="text-rose-800">${a.stressed_decision}</strong>
+              • Điểm: ${a.baseline_score}→${a.stressed_score}
+            </div>
+          </div>
+        `
+        )
+        .join("");
+    }
+  }
 }
 
 /* ============================================================================
@@ -1696,13 +1958,29 @@ function exportCreditMemoReport() {
         </tr>
       </table>
 
-      <h2>2. Chuỗi Luật Kích hoạt & Diễn giải Suy diễn Tiến (Forward Chaining Trace)</h2>
+      <h2>2. Chỉ số Định lượng Rủi ro Tín dụng Chuẩn Ngân hàng Basel III</h2>
+      <table>
+        <tr>
+          <th>PD (Probability of Default 12M)</th><td>${Number(sum.pd_percent ?? 0).toFixed(2)}%</td>
+          <th>LGD (Loss Given Default)</th><td>${Number(sum.lgd_percent ?? 0).toFixed(2)}%</td>
+        </tr>
+        <tr>
+          <th>EAD (Exposure at Default)</th><td>${Number(sum.ead_amount ?? sum.approved_amount ?? 0).toFixed(2)} triệu VNĐ</td>
+          <th>Expected Loss (EL = PD × LGD × EAD)</th><td><strong>${Number(sum.expected_loss ?? 0).toFixed(2)} triệu VNĐ</strong></td>
+        </tr>
+        <tr>
+          <th>Tài sản Có Rủi ro (RWA)</th><td>${Number(sum.rwa_amount ?? 0).toFixed(2)} triệu VNĐ (RW ${Number(sum.risk_weight_percent ?? 100).toFixed(0)}%)</td>
+          <th>Hiệu suất RAROC (CAR 10.5%)</th><td><strong>${Number(sum.ead_amount ?? 0) > 0 ? Number(sum.raroc_percent ?? 0).toFixed(2) + "%" : "0.00% (Từ chối)"}</strong></td>
+        </tr>
+      </table>
+
+      <h2>3. Chuỗi Luật Kích hoạt & Diễn giải Suy diễn Tiến (Forward Chaining Trace)</h2>
       <div style="font-family: monospace; font-size: 13px; margin-bottom: 8px;">
         <strong>Chuỗi kích hoạt:</strong> ${eng.fired_rules.join(" → ")}
       </div>
       <ul style="font-size: 13px;">${reasonsHtml}</ul>
 
-      <h2>3. Khuyến nghị Hành động của Hệ thống Hỗ trợ Ra quyết định (DSS Recommendations)</h2>
+      <h2>4. Khuyến nghị Hành động của Hệ thống Hỗ trợ Ra quyết định (DSS Recommendations)</h2>
       <ul style="font-size: 13px;">${recsHtml || "<li>Đủ điều kiện giải ngân theo quy định chuẩn.</li>"}</ul>
     </body>
     </html>
@@ -1711,14 +1989,14 @@ function exportCreditMemoReport() {
 }
 
 /* ============================================================================
-   XUAT FILE JSON KIEM TOAN, XUAT / NAP CSV HANG LOAT & OFFLINE CANVAS FALLBACK
+   XUAT FILE JSON KIEM TOAN, XUAT / NAP CSV CHUAN RFC 4180 & OFFLINE FALLBACK
    ============================================================================ */
 function downloadAuditJson() {
   if (!STATE.currentEvaluation) return;
   const appId = STATE.currentEvaluation.applicant.applicant_id || "CUSTOM";
   const payload = {
     exported_at: new Date().toISOString(),
-    project: "DSS - Nhom 1 - De 08: DROOLS Rule Engine",
+    project: "DSS - Nhom 1 - De 08: DROOLS Rule Engine (V3 Ultimate)",
     evaluation: STATE.currentEvaluation,
     rule_verification: STATE.ruleVerification,
   };
@@ -1755,12 +2033,17 @@ function exportBatchResultsCsv() {
     "decision",
     "approved_amount",
     "interest_rate",
+    "pd_percent",
+    "lgd_percent",
+    "ead_amount",
+    "expected_loss",
+    "raroc_percent",
     "fired_rules",
   ];
   const rows = [headers.join(",")];
   batch.items.forEach((item) => {
     const row = [
-      item.applicant_id,
+      `"${String(item.applicant_id || "").replace(/"/g, '""')}"`,
       `"${String(item.full_name || "").replace(/"/g, '""')}"`,
       item.age,
       item.monthly_income,
@@ -1773,13 +2056,18 @@ function exportBatchResultsCsv() {
       item.decision,
       item.approved_amount,
       item.interest_rate,
+      item.pd_percent ?? 0,
+      item.lgd_percent ?? 0,
+      item.ead_amount ?? item.approved_amount ?? 0,
+      item.expected_loss ?? 0,
+      item.raroc_percent ?? 0,
       `"${(item.fired_rules || []).join(" -> ")}"`,
     ];
     rows.push(row.join(","));
   });
 
   // Thêm UTF-8 BOM để mở trực tiếp trên Microsoft Excel không bị lỗi font tiếng Việt
-  const csvContent = "\uFEFF" + rows.join("\n");
+  const csvContent = "\uFEFF" + rows.join("\r\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -1791,27 +2079,88 @@ function exportBatchResultsCsv() {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Trinh phan tich CSV tuan thu day du chuan RFC 4180:
+ * - Tu dong loai bo UTF-8 BOM (\uFEFF)
+ * - Xu ly chinh xac dau phay (,), xuong dong (\r\n, \n) nam ben trong dau ngoac kep "..."
+ * - Giai ma cap ngoac kep thoat "" -> " theo chuan RFC 4180
+ */
+function parseCsvRFC4180(csvText) {
+  const clean = String(csvText || "").replace(/^\uFEFF/, "");
+  const rows = [];
+  let currentRow = [];
+  let currentField = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    const next = clean[i + 1];
+
+    if (inQuotes) {
+      if (ch === '"' && next === '"') {
+        currentField += '"';
+        i += 1;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        currentField += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        currentRow.push(currentField.trim());
+        currentField = "";
+      } else if (ch === "\r" && next === "\n") {
+        currentRow.push(currentField.trim());
+        currentField = "";
+        if (currentRow.some((cell) => cell !== "")) {
+          rows.push(currentRow);
+        }
+        currentRow = [];
+        i += 1;
+      } else if (ch === "\n" || ch === "\r") {
+        currentRow.push(currentField.trim());
+        currentField = "";
+        if (currentRow.some((cell) => cell !== "")) {
+          rows.push(currentRow);
+        }
+        currentRow = [];
+      } else {
+        currentField += ch;
+      }
+    }
+  }
+
+  if (currentField.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentField.trim());
+    if (currentRow.some((cell) => cell !== "")) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
+}
+
 async function uploadCustomBatchCsv(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
   try {
     const text = await file.text();
-    const lines = text
-      .replace(/^\uFEFF/, "")
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean);
-    if (lines.length < 2) {
+    const parsedRows = parseCsvRFC4180(text);
+    if (parsedRows.length < 2) {
       alert("File CSV cần có ít nhất 1 dòng tiêu đề và 1 dòng dữ liệu hồ sơ.");
       return;
     }
-    const headers = lines[0].split(",").map((h) => h.trim());
+    const headers = parsedRows[0].map((h) => h.trim());
     const applicants = [];
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+    for (let i = 1; i < parsedRows.length; i++) {
+      const cols = parsedRows[i];
       const obj = {};
       headers.forEach((h, idx) => {
-        obj[h] = cols[idx] !== undefined ? cols[idx] : "";
+        if (h) {
+          obj[h] = cols[idx] !== undefined ? cols[idx] : "";
+        }
       });
       applicants.push(obj);
     }
@@ -1825,7 +2174,7 @@ async function uploadCustomBatchCsv(event) {
     if (data.status !== "OK") throw new Error(data.message);
     renderBatchPortfolio(data.batch);
   } catch (err) {
-    alert("Lỗi khi nạp file CSV: " + err.message);
+    alert("Lỗi khi nạp file CSV (RFC 4180): " + err.message);
   } finally {
     event.target.value = "";
   }

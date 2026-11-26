@@ -123,9 +123,9 @@
 
 ---
 
-### SLIDE 12: Kiến trúc Ứng dụng Demo Web FinTech DSS Dashboard (V3 Ultimate)
+### SLIDE 12: Kiến trúc Ứng dụng Demo Web FinTech DSS Dashboard
 - **Triển khai 100% tương thích Python chuẩn (`python app.py`):**
-  - Tích hợp **`SafeASTEvaluator` Sandbox** (chặn tuyệt đối Code Injection trên Live DRL Studio), **`Incremental Alpha Memory Cache`** theo `(handle_id, fact.recency)` và **`StrictInputSanitizer`** chống chia cho 0.
+  - Tích hợp **`SafeASTEvaluator` Sandbox** (chặn chèn mã (Code Injection) trên Live DRL Studio), **`Incremental Alpha Memory Cache`** theo `(handle_id, fact.recency)` và **`StrictInputSanitizer`** chống chia cho 0.
 - **7 Phân hệ tương tác trên Giao diện Single-Page Dashboard:**
   1. Thanh 6 Kịch bản Demo 1-Click & Bộ chọn 15 Hồ sơ CSV.
   2. Executive Decision Card, Chỉ số **Basel III (`PD`, `LGD`, `Expected Loss`, `RAROC`)** & Biểu đồ Radar 5 Chiều.
@@ -161,14 +161,14 @@
 
 ---
 
-## PHẦN 2: KỊCH BẢN DEMO TRỰC TIẾP 5 PHÚT TRÊN WEB UI (GHI ĐIỂM TUYỆT ĐỐI 10/10)
+## PHẦN 2: KỊCH BẢN DEMO TRỰC TIẾP 5 PHÚT TRÊN WEB UI 
 
 > **Chuẩn bị trước khi lên bục:** Chạy lệnh `python app.py` trên Terminal, mở trình duyệt tại `http://localhost:8000`.
 
 ### Phút 1: Giới thiệu Tổng quan & Demo 1-Click Kịch bản 1 (VIP Hạng A) vs Kịch bản 5 (Knock-out CIC)
 1. Chỉ vào **Khu vực 1 (Thanh Kịch bản Demo 1-Click)**: *"Thưa thầy/cô, hệ thống của nhóm đọc trực tiếp 20 luật từ file `rules/credit_approval.drl` và 3 luật từ bảng quyết định `decision_table_rules.csv` vào `KieBase`."*
 2. Bấm vào **Kịch bản 1 (Khách hàng VIP – Hạng A)**:
-   - Chỉ vào **Khu vực 2 (Executive Decision Card)**: Hệ thống duyệt tự động 100% hạn mức (`500 triệu`), lãi suất ưu đãi VIP `6.8%/năm`, điểm tuyệt đối `100/100`, đồng thời vì khoản vay $\ge 500$ triệu nên luật `R18` tự động bật cờ yêu cầu định giá độc lập.
+   - Chỉ vào **Khu vực 2 (Executive Decision Card)**: Hệ thống duyệt tự động 100% hạn mức (`500 triệu`), lãi suất ưu đãi VIP `6.8%/năm`, điểm `100/100`, đồng thời vì khoản vay $\ge 500$ triệu nên luật `R18` tự động bật cờ yêu cầu định giá độc lập.
 3. Bấm ngay sang **Kịch bản 5 (Từ chối do Nợ xấu CIC)**:
    - Chỉ vào chuỗi luật kích hoạt: Chỉ có `R02 → R20` (2 chu kỳ!). Giải thích: *"Nhờ kiến trúc PHREAK và cơ chế `insertLogical`, khi `R02` đánh rớt ở Tầng 1, Fact trung gian `EligibilityPassed` không được sinh ra nên toàn bộ 13 luật ở Tầng 2 và Tầng 3 được cắt nhánh hoàn toàn."*
 

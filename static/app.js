@@ -32,39 +32,39 @@ const STATE = {
 
 const PRESET_TITLES = [
   {
-    badge: "Kịch bản 1 • VIP Hạng A",
-    title: "Duyệt tự động 100% & Lãi suất VIP 6.8%",
-    desc: "Điểm 100/100 • Vay 500tr kích hoạt kiểm soát định giá độc lập R18",
+    badge: "KB1 – Khách VIP",
+    title: "Duyệt, lãi suất 6.8%",
+    desc: "Điểm 100, vay 500tr nên chạy thêm R18",
     accent: "emerald",
   },
   {
-    badge: "Kịch bản 2 • Hạng B Có TSĐB",
-    title: "Duyệt 100% hạn mức • Lãi suất 9.2%",
-    desc: "Điểm 75/100 • Có tài sản đảm bảo >= 120% khoản vay (R07 + R14)",
+    badge: "KB2 – Hạng B có TSĐB",
+    title: "Duyệt đủ hạn mức, lãi suất 9.2%",
+    desc: "Điểm 75, TSĐB ≥ 120% khoản vay (R07, R14)",
     accent: "sky",
   },
   {
-    badge: "Kịch bản 3 • Hạng B Tín chấp",
-    title: "Duyệt có điều kiện • Cắt giảm 80%",
-    desc: "Điểm 65/100 • Vay tín chấp không TSĐB (R15 + Khuyến nghị R19)",
+    badge: "KB3 – Hạng B tín chấp",
+    title: "Duyệt có điều kiện, cấp 80%",
+    desc: "Điểm 65, không có TSĐB (R15, R19)",
     accent: "amber",
   },
   {
-    badge: "Kịch bản 4 • Hồ sơ Xung đột Hạng C",
-    title: "Xung đột R05 (+20) vs R08 (-15)",
-    desc: "Điểm 45/100 • Chuyển Hội đồng Tín dụng thẩm định (R11 + R16)",
+    badge: "KB4 – Hạng C",
+    title: "R05 (+20) và R08 (-15) cùng chạy",
+    desc: "Điểm 45, chuyển thẩm định thủ công (R11, R16)",
     accent: "indigo",
   },
   {
-    badge: "Kịch bản 5 • Knock-out Nợ xấu CIC",
-    title: "Từ chối ngay Tầng 1 (Dừng sớm R02)",
-    desc: "Có nợ xấu CIC nhóm 3–5 • Không sinh EligibilityPassed, bỏ qua Tầng 2–3",
+    badge: "KB5 – Nợ xấu CIC",
+    title: "Từ chối ở tầng 1 (R02)",
+    desc: "Nợ xấu nhóm 3–5, không chạy tầng 2–3",
     accent: "rose",
   },
   {
-    badge: "Kịch bản 6 • Knock-out DTI > 65%",
-    title: "Từ chối ngay Tầng 1 do DTI 71.5%",
-    desc: "Vi phạm trần nợ/thu nhập R03 • Sinh lộ trình giảm dư nợ R20",
+    badge: "KB6 – DTI > 65%",
+    title: "Từ chối ở tầng 1, DTI 71.5%",
+    desc: "Vượt trần DTI (R03), gợi ý giảm nợ (R20)",
     accent: "rose",
   },
 ];
@@ -73,25 +73,25 @@ const AGENDA_STAGE_INFO = [
   {
     id: "1-eligibility",
     title: "Tầng 1: 1-eligibility",
-    subtitle: "Loại trừ cứng (Hard Knock-out) & TMS",
+    subtitle: "Loại trừ",
     salience: "Salience 90..100",
   },
   {
     id: "2-risk-scoring",
     title: "Tầng 2: 2-risk-scoring",
-    subtitle: "Chấm điểm & Phân hạng Rủi ro",
+    subtitle: "Chấm điểm, xếp hạng",
     salience: "Salience 60..80",
   },
   {
     id: "3-pricing-decision",
     title: "Tầng 3: 3-pricing-decision",
-    subtitle: "Quyết định, Hạn mức & Định giá Lãi suất",
+    subtitle: "Hạn mức, lãi suất",
     salience: "Salience 30..50",
   },
   {
     id: "4-dss-explanation",
     title: "Tầng 4: 4-dss-explanation",
-    subtitle: "Khuyến nghị DSS & Kiểm soát Biên",
+    subtitle: "Khuyến nghị",
     salience: "Salience 10..20",
   },
 ];
@@ -130,7 +130,7 @@ async function loadOverviewData() {
 
     const badge = document.getElementById("headerEngineBadge");
     if (badge && data.project) {
-      badge.textContent = `KieBase: ${data.project.total_rules} Rules • SafeAST • Basel III Ready`;
+      badge.textContent = `${data.project.total_rules} luật`;
     }
 
     const drlEditor = document.getElementById("drlSourceEditor");
@@ -215,7 +215,7 @@ function toggleFullPageMode() {
 async function runFullAutoDemoShowcase() {
   const btn = document.getElementById("btnRunAllDemo");
   if (btn) {
-    btn.textContent = "⏳ Đang chạy đồng loạt 5 Phân hệ...";
+    btn.textContent = "Đang chạy...";
     btn.disabled = true;
   }
   STATE.fullPageMode = true;
@@ -236,7 +236,7 @@ async function runFullAutoDemoShowcase() {
   ]);
 
   if (btn) {
-    btn.textContent = "✅ Đang mở Tất cả 5 Phân hệ (All-in-One)";
+    btn.textContent = "Xem tất cả";
     btn.disabled = false;
   }
 }
@@ -336,7 +336,7 @@ function populateFormWithApplicant(app) {
   const badge = document.getElementById("formApplicantIdBadge");
   if (badge) badge.textContent = app.applicant_id || "CUSTOM";
 
-  document.getElementById("inp_full_name").value = app.full_name ?? "Khách hàng Demo";
+  document.getElementById("inp_full_name").value = app.full_name ?? "";
   document.getElementById("inp_age").value = app.age ?? 32;
   document.getElementById("inp_employment_years").value = app.employment_years ?? 3.0;
   document.getElementById("inp_monthly_income").value = app.monthly_income ?? 25.0;
@@ -389,7 +389,7 @@ async function evaluateApplicantPayload(payload) {
     STATE.replayStepIndex = -1;
     renderEvaluationResult(data.result);
   } catch (err) {
-    alert("Lỗi khi chạy Drools Engine: " + err.message);
+    alert("Lỗi khi chạy: " + err.message);
   }
 }
 
@@ -402,7 +402,7 @@ function renderEvaluationResult(evalData) {
   const sum = evalData.summary;
   const eng = evalData.engine;
 
-  document.getElementById("execCyclesBadge").textContent = `${eng.total_cycles} Chu kỳ Suy diễn`;
+  document.getElementById("execCyclesBadge").textContent = `${eng.total_cycles} chu kỳ`;
   const tierBadge = document.getElementById("execTierBadge");
   tierBadge.className = `badge-pill tier-${sum.risk_tier}`;
   tierBadge.textContent = `${sum.risk_tier} • ${sum.risk_tier_label}`;
@@ -462,12 +462,12 @@ function renderEvaluationResult(evalData) {
   if (elPdNote) {
     elPdNote.textContent =
       pdVal <= 1.5
-        ? "Rủi ro vỡ nợ rất thấp (Investment Grade)"
+        ? "Rủi ro rất thấp"
         : pdVal <= 4.0
-        ? "Rủi ro vỡ nợ thấp – trung bình"
+        ? "Rủi ro thấp – trung bình"
         : pdVal <= 10.0
-        ? "Cần giám sát rủi ro (Watchlist)"
-        : "Nguy cơ vỡ nợ cao (High Default Risk)";
+        ? "Cần theo dõi"
+        : "Rủi ro cao";
     elPdNote.className =
       pdVal <= 4.0
         ? "text-[11px] text-emerald-700 font-medium mt-0.5"
@@ -508,11 +508,11 @@ function renderEvaluationResult(evalData) {
   const recList = document.getElementById("execRecommendationsList");
   const recs = sum.recommendations && sum.recommendations.length > 0
     ? sum.recommendations
-    : ["Hồ sơ đạt chuẩn phê duyệt tự động, không yêu cầu điều chỉnh bổ sung."];
+    : ["Không có khuyến nghị thêm."];
   recList.innerHTML = recs
     .map(
       (r) =>
-        `<li class="flex items-start gap-2"><span class="text-sky-700 font-bold">★</span><span>${escapeHtml(r)}</span></li>`
+        `<li class="flex items-start gap-2"><span class="text-slate-400">-</span><span>${escapeHtml(r)}</span></li>`
     )
     .join("");
 
@@ -524,11 +524,11 @@ function renderEvaluationResult(evalData) {
 function renderApplicantRadarChart(dims) {
   if (!dims) return;
   const labels = [
-    "Năng lực Thu nhập",
-    "Uy tín Tín dụng",
-    "An toàn Dư nợ (DTI)",
-    "Bảo chứng Tài sản",
-    "Ổn định Nghề nghiệp",
+    "Thu nhập",
+    "Điểm tín dụng",
+    "DTI",
+    "TSĐB",
+    "Thâm niên",
   ];
   const values = [
     dims.income_capacity || 0,
@@ -568,7 +568,7 @@ function renderApplicantRadarChart(dims) {
       labels,
       datasets: [
         {
-          label: "Điểm Đánh giá 5 Chiều (0–100)",
+          label: "Điểm (0–100)",
           data: values,
           backgroundColor: "rgba(2, 132, 199, 0.22)",
           borderColor: "#0284c7",
@@ -633,7 +633,7 @@ function renderReteVisualizer(evalData) {
 
       <div class="pipeline-node active-glow">
         <div class="text-[11px] font-bold uppercase text-sky-700">2. Alpha Network (Sharing + Cache)</div>
-        <div class="text-sm font-extrabold text-slate-900 mt-0.5">${activeAlphaCount} / ${stats.unique_alpha_nodes} AlphaNodes Khớp</div>
+        <div class="text-sm font-extrabold text-slate-900 mt-0.5">${activeAlphaCount} / ${stats.unique_alpha_nodes} AlphaNode khớp</div>
         <div class="text-[11px] text-emerald-700 font-semibold mt-0.5">
           Tiết kiệm ${stats.alpha_nodes_saved_by_sharing} nút • Cache Hits: ${stats.cache_hits ?? 0} (${stats.cache_hit_rate_percent ?? 0}%)
         </div>
@@ -641,7 +641,7 @@ function renderReteVisualizer(evalData) {
 
       <div class="pipeline-node active-glow">
         <div class="text-[11px] font-bold uppercase text-sky-700">3. Beta Network (JoinNode)</div>
-        <div class="text-sm font-extrabold text-slate-900 mt-0.5">${stats.multi_fact_beta_joins} Nút Join 2-Fact</div>
+        <div class="text-sm font-extrabold text-slate-900 mt-0.5">${stats.multi_fact_beta_joins} nút join</div>
         <div class="text-[11px] text-slate-600 mt-0.5">
           Kết hợp EligibilityPassed ⋈ Applicant
         </div>
@@ -649,7 +649,7 @@ function renderReteVisualizer(evalData) {
 
       <div class="pipeline-node active-glow">
         <div class="text-[11px] font-bold uppercase text-sky-700">4. RuleTerminalNodes</div>
-        <div class="text-sm font-extrabold text-slate-900 mt-0.5">${firedCodesSoFar.size} / ${stats.total_terminal_nodes} Luật Kích hoạt</div>
+        <div class="text-sm font-extrabold text-slate-900 mt-0.5">${firedCodesSoFar.size} / ${stats.total_terminal_nodes} luật đã chạy</div>
         <div class="text-[11px] text-amber-700 font-semibold mt-0.5">
           ${cancelledCodes.size} luật bị hủy do activation-group
         </div>
@@ -657,7 +657,7 @@ function renderReteVisualizer(evalData) {
 
       <div class="pipeline-node active-glow">
         <div class="text-[11px] font-bold uppercase text-sky-700">5. Agenda & TMS</div>
-        <div class="text-sm font-extrabold text-slate-900 mt-0.5">${eng.total_cycles} Chu kỳ Forward Chaining</div>
+        <div class="text-sm font-extrabold text-slate-900 mt-0.5">${eng.total_cycles} chu kỳ</div>
         <div class="text-[11px] text-teal-700 font-semibold mt-0.5">
           ${(eng.tms_events || []).length} sự kiện TMS (insertLogical)
         </div>
@@ -671,9 +671,9 @@ function renderReteVisualizer(evalData) {
       replayBanner.innerHTML = `
         <div class="flex items-center gap-2">
           <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">
-            CHẾ ĐỘ TOÀN CẢNH (${steps.length} CHU KỲ)
+            Toàn bộ (${steps.length} chu kỳ)
           </span>
-          <span>Đang hiển thị toàn bộ các nút và luật đã kích hoạt trong phiên suy diễn. Bấm <strong>"▶ Chạy từng bước (Replay)"</strong> để trình chiếu từng chu kỳ!</span>
+          <span>Đang hiện tất cả các nút và luật đã chạy. Bấm "Chạy từng bước" để xem từng chu kỳ.</span>
         </div>
         <div class="font-mono text-sky-300 font-bold">
           Chuỗi kích hoạt: ${eng.fired_rules.join(" → ")}
@@ -694,7 +694,7 @@ function renderReteVisualizer(evalData) {
         <div class="space-y-1">
           <div class="flex flex-wrap items-center gap-2">
             <span class="px-2 py-0.5 rounded bg-sky-500 text-white font-mono font-bold">
-              BƯỚC ${currentStep.cycle} / ${steps.length}
+              Bước ${currentStep.cycle} / ${steps.length}
             </span>
             <span class="px-2 py-0.5 rounded bg-slate-800 text-sky-300 font-mono">
               agenda-group: "${currentStep.agenda_group}"
@@ -740,13 +740,13 @@ function renderReteVisualizer(evalData) {
 
         if (isCurrent) {
           boxClass = "rete-node-box node-current-step";
-          statusBadge = `<span class="px-1.5 py-0.5 rounded bg-sky-600 text-white font-mono text-[10px] font-bold">⚡ FIRING (CYCLE ${currentStep.cycle})</span>`;
+          statusBadge = `<span class="px-1.5 py-0.5 rounded bg-sky-600 text-white font-mono text-[10px] font-bold">đang chạy</span>`;
         } else if (isFired) {
           boxClass = "rete-node-box node-fired";
-          statusBadge = `<span class="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-mono text-[10px] font-bold">✓ FIRED</span>`;
+          statusBadge = `<span class="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-mono text-[10px] font-bold">đã chạy</span>`;
         } else if (isCancelled) {
           boxClass = "rete-node-box node-cancelled";
-          statusBadge = `<span class="px-1.5 py-0.5 rounded bg-amber-500 text-white font-mono text-[10px] font-bold">✕ CANCELLED</span>`;
+          statusBadge = `<span class="px-1.5 py-0.5 rounded bg-amber-500 text-white font-mono text-[10px] font-bold">bị hủy</span>`;
         }
 
         return `
@@ -856,7 +856,7 @@ function toggleReplayAuto() {
   highlightTraceRow(0);
 
   const btn = document.getElementById("btnReplayAuto");
-  if (btn) btn.textContent = "⏸ Tạm dừng Replay";
+  if (btn) btn.textContent = "Dừng";
 
   STATE.replayTimer = setInterval(() => {
     const total = (STATE.currentEvaluation.engine.trace_steps || []).length;
@@ -876,7 +876,7 @@ function stopReplayAuto() {
     STATE.replayTimer = null;
   }
   const btn = document.getElementById("btnReplayAuto");
-  if (btn) btn.textContent = "▶ Chạy từng bước (Replay)";
+  if (btn) btn.textContent = "Chạy từng bước";
 }
 
 function highlightTraceRow(stepIdx) {
@@ -914,10 +914,10 @@ async function runTmsInteractiveDemo() {
     box.innerHTML = `
       <div class="flex items-center justify-between">
         <div class="font-extrabold text-teal-950 text-sm">
-          Minh họa Thực nghiệm Truth Maintenance System (TMS – \`insertLogical\` & Tự động Rút lại Fact Suy diễn)
+          Thử TMS (insertLogical)
         </div>
         <button type="button" onclick="document.getElementById('tmsDemoResultBox').classList.add('hidden')" class="text-xs font-bold text-teal-800 hover:underline">
-          Đóng ✕
+          Đóng
         </button>
       </div>
       <p class="text-teal-900">
@@ -929,7 +929,7 @@ async function runTmsInteractiveDemo() {
       </div>
     `;
   } catch (err) {
-    alert("Lỗi chạy TMS Demo: " + err.message);
+    alert("Lỗi TMS: " + err.message);
   }
 }
 
@@ -953,7 +953,7 @@ function renderTraceAndConflictLog(evalData) {
           (c) => `
           <div class="p-2 rounded-lg bg-white border border-amber-200">
             <div class="flex items-center justify-between">
-              <span class="font-bold text-amber-950 font-mono">✕ ${escapeHtml(c.cancelled_rule)} (salience ${c.cancelled_salience})</span>
+              <span class="font-bold text-amber-950 font-mono">${escapeHtml(c.cancelled_rule)} (salience ${c.cancelled_salience})</span>
               <span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-mono text-[10px] font-bold">
                 activation-group: "${c.activation_group}"
               </span>
@@ -968,14 +968,14 @@ function renderTraceAndConflictLog(evalData) {
   const tmsBox = document.getElementById("tmsEventsBox");
   if (tmsBox) {
     if (tmsEvents.length === 0) {
-      tmsBox.innerHTML = `<div class="text-teal-900">Hồ sơ bị dừng sớm (Hard Knock-out) ở Tầng 1 nên R04 không sinh Fact trung gian <code>EligibilityPassed</code> qua TMS.</div>`;
+      tmsBox.innerHTML = `<div class="text-teal-900">Hồ sơ bị loại ở tầng 1 nên R04 không chạy, không có <code>EligibilityPassed</code>.</div>`;
     } else {
       tmsBox.innerHTML = tmsEvents
         .map(
           (e) => `
           <div class="p-2 rounded-lg bg-white border border-teal-200">
             <div class="flex items-center justify-between">
-              <span class="font-bold text-teal-950 font-mono">✓ ${e.action}: ${e.fact_type} (Handle #${e.handle_id})</span>
+              <span class="font-bold text-teal-950 font-mono">${e.action}: ${e.fact_type} (Handle #${e.handle_id})</span>
               <span class="px-1.5 py-0.5 rounded bg-teal-100 text-teal-900 font-mono text-[10px] font-bold">
                 TMS Justified
               </span>
@@ -995,7 +995,7 @@ function renderTraceAndConflictLog(evalData) {
       const conflictHtml = (s.conflict_set || [])
         .map((c, idx) =>
           idx === 0
-            ? `<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900 font-mono text-[11px] font-bold">★ ${c.rule_code}(sal:${c.salience})</span>`
+            ? `<span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900 font-mono text-[11px] font-bold">${c.rule_code} (sal ${c.salience})</span>`
             : `<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[11px]">${c.rule_code}(sal:${c.salience})</span>`
         )
         .join(" ");
@@ -1022,7 +1022,7 @@ function renderTraceAndConflictLog(evalData) {
                   )}</span> → <span class="text-emerald-700 font-bold">${JSON.stringify(v.after)}</span></div>`
               )
               .join("")
-          : `<div class="text-[11px] text-slate-600">Ghi nhận khuyến nghị / Giải thích DSS</div>`;
+          : `<div class="text-[11px] text-slate-600">Ghi khuyến nghị</div>`;
 
       return `
         <tr>
@@ -1152,7 +1152,7 @@ function renderWhatIfResults(res) {
     const deltaSign = (n) => (n > 0 ? `+${n}` : `${n}`);
     cardsBox.innerHTML = `
       <div class="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
-        <div class="text-xs font-bold uppercase text-slate-500">Hồ sơ Gốc (Baseline: ${escapeHtml(res.baseline.applicant.full_name)})</div>
+        <div class="text-xs font-bold uppercase text-slate-500">Trước (${escapeHtml(res.baseline.applicant.full_name)})</div>
         <div class="text-base font-extrabold text-slate-900">${baseSum.decision_label}</div>
         <div class="flex items-center gap-2 text-xs">
           <span class="badge-pill tier-${baseSum.risk_tier}">${baseSum.risk_tier}</span>
@@ -1168,7 +1168,7 @@ function renderWhatIfResults(res) {
 
       <div class="p-4 rounded-xl border-2 border-sky-500 bg-sky-50/40 space-y-2">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold uppercase text-sky-800">Kết quả Giả lập (What-If Scenario)</span>
+          <span class="text-xs font-bold uppercase text-sky-800">Sau khi đổi</span>
           <span class="px-2 py-0.5 rounded bg-sky-600 text-white font-mono text-xs font-bold">
             Δ Điểm: ${deltaSign(cmp.score_delta)}
           </span>
@@ -1193,10 +1193,10 @@ function renderWhatIfResults(res) {
     const added = cmp.added_rules.length > 0 ? cmp.added_rules.join(", ") : "Không có";
     const removed = cmp.removed_rules.length > 0 ? cmp.removed_rules.join(", ") : "Không có";
     diffBox.innerHTML = `
-      <div class="font-bold text-slate-900">Sự dịch chuyển Kích hoạt Luật trên Mạng Rete / PHREAK:</div>
+      <div class="font-bold text-slate-900">Thay đổi về luật:</div>
       <div class="flex flex-wrap gap-3">
-        <span class="text-emerald-800 font-mono"><strong>+ Luật kích hoạt mới:</strong> [${added}]</span>
-        <span class="text-rose-800 font-mono"><strong>- Luật ngừng kích hoạt:</strong> [${removed}]</span>
+        <span class="text-emerald-800 font-mono"><strong>+ Thêm:</strong> [${added}]</span>
+        <span class="text-rose-800 font-mono"><strong>- Bớt:</strong> [${removed}]</span>
       </div>
     `;
   }
@@ -1215,7 +1215,7 @@ function renderWhatIfResults(res) {
       labels: curve.map((p) => `TN ${p.monthly_income}tr (DTI ${p.dti_ratio}%)`),
       datasets: [
         {
-          label: "Điểm Suy diễn (0-100)",
+          label: "Điểm (0-100)",
           data: curve.map((p) => p.composite_score),
           borderColor: "#0284c7",
           backgroundColor: "rgba(2, 132, 199, 0.15)",
@@ -1260,32 +1260,32 @@ function renderBatchPortfolio(batch) {
   if (kpiBox) {
     kpiBox.innerHTML = `
       <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50">
-        <div class="text-xs font-semibold text-slate-500">Tổng số Hồ sơ CSV</div>
+        <div class="text-xs font-semibold text-slate-500">Tổng số hồ sơ</div>
         <div class="text-xl font-extrabold text-slate-900 font-mono mt-0.5">${batch.total_applicants} hồ sơ</div>
         <div class="text-xs text-slate-600 mt-0.5">Duyệt: ${batch.total_approved_amount} / ${batch.total_requested_amount} tr</div>
       </div>
       <div class="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/70">
-        <div class="text-xs font-semibold text-emerald-800">Phê duyệt (APPROVED)</div>
+        <div class="text-xs font-semibold text-emerald-800">Duyệt</div>
         <div class="text-xl font-extrabold text-emerald-900 font-mono mt-0.5">${dc.APPROVED || 0} hồ sơ</div>
-        <div class="text-xs text-emerald-700 mt-0.5">Hạng A & Hạng B có TSĐB</div>
+        <div class="text-xs text-emerald-700 mt-0.5">Hạng A, B có TSĐB</div>
       </div>
       <div class="p-3.5 rounded-xl border border-amber-200 bg-amber-50/70">
-        <div class="text-xs font-semibold text-amber-800">Có Điều kiện (CONDITIONAL)</div>
+        <div class="text-xs font-semibold text-amber-800">Có điều kiện</div>
         <div class="text-xl font-extrabold text-amber-900 font-mono mt-0.5">${dc.CONDITIONAL_APPROVAL || 0} hồ sơ</div>
-        <div class="text-xs text-amber-700 mt-0.5">Hạng B vay tín chấp (80%)</div>
+        <div class="text-xs text-amber-700 mt-0.5">Hạng B tín chấp</div>
       </div>
       <div class="p-3.5 rounded-xl border border-sky-200 bg-sky-50/70">
-        <div class="text-xs font-semibold text-sky-800">Thẩm định (MANUAL)</div>
+        <div class="text-xs font-semibold text-sky-800">Thẩm định thủ công</div>
         <div class="text-xl font-extrabold text-sky-900 font-mono mt-0.5">${dc.MANUAL_REVIEW || 0} hồ sơ</div>
-        <div class="text-xs text-sky-700 mt-0.5">Hạng C cần Hội đồng xem xét</div>
+        <div class="text-xs text-sky-700 mt-0.5">Hạng C</div>
       </div>
       <div class="p-3.5 rounded-xl border border-rose-200 bg-rose-50/70">
-        <div class="text-xs font-semibold text-rose-800">Từ chối (REJECTED)</div>
+        <div class="text-xs font-semibold text-rose-800">Từ chối</div>
         <div class="text-xl font-extrabold text-rose-900 font-mono mt-0.5">${dc.REJECTED || 0} hồ sơ</div>
-        <div class="text-xs text-rose-700 mt-0.5">Knock-out Tầng 1 & Hạng D</div>
+        <div class="text-xs text-rose-700 mt-0.5">Loại ở tầng 1 hoặc hạng D</div>
       </div>
       <div class="p-3.5 rounded-xl border border-teal-200 bg-teal-50/70">
-        <div class="text-xs font-semibold text-teal-800">Basel III Danh mục</div>
+        <div class="text-xs font-semibold text-teal-800">Basel III</div>
         <div class="text-lg font-extrabold text-teal-950 font-mono mt-0.5">EL: ${(batch.total_expected_loss ?? 0).toFixed(2)} tr</div>
         <div class="text-xs text-teal-800 font-mono mt-0.5">RAROC: ${(batch.portfolio_raroc_percent ?? 0).toFixed(1)}%</div>
       </div>
@@ -1329,7 +1329,7 @@ function renderBatchPortfolio(batch) {
               onclick="inspectApplicantFromBatch('${escapeHtml(item.applicant_id)}')"
               class="px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold"
             >
-              Xem Truy vết
+              Xem
             </button>
           </td>
         </tr>`
@@ -1368,10 +1368,10 @@ function renderBatchPortfolio(batch) {
       STATE.charts.batchTier = new window.Chart(cTier, {
         type: "bar",
         data: {
-          labels: ["TIER_A (Rất thấp)", "TIER_B (Thấp-TB)", "TIER_C (TB-Cao)", "TIER_D (Cao)"],
+          labels: ["A", "B", "C", "D"],
           datasets: [
             {
-              label: "Số lượng Hồ sơ",
+              label: "Số hồ sơ",
               data: [tc.TIER_A || 0, tc.TIER_B || 0, tc.TIER_C || 0, tc.TIER_D || 0],
               backgroundColor: ["#16a34a", "#0284c7", "#d97706", "#dc2626"],
             },
@@ -1448,7 +1448,7 @@ async function runPortfolioStressTest() {
       }),
     });
     const data = await resp.json();
-    if (data.status !== "OK") throw new Error(data.message || "Lỗi chạy Stress-Test");
+    if (data.status !== "OK") throw new Error(data.message || "Lỗi chạy stress test");
     STATE.currentStressTest = data.stress_test;
     renderStressTestResult(data.stress_test);
   } catch (err) {
@@ -1469,7 +1469,7 @@ function renderStressTestResult(st) {
     const fmtSign = (n, dec = 2) => (n > 0 ? `+${Number(n).toFixed(dec)}` : Number(n).toFixed(dec));
     kpiBox.innerHTML = `
       <div class="p-3 rounded-xl border border-slate-200 bg-white">
-        <div class="text-[11px] font-semibold text-slate-500">Tổng Hạn mức Duyệt</div>
+        <div class="text-[11px] font-semibold text-slate-500">Tổng hạn mức duyệt</div>
         <div class="text-base font-extrabold text-slate-900 font-mono mt-0.5">
           ${Number(stressP.total_approved_amount ?? 0).toFixed(1)} tr
         </div>
@@ -1479,7 +1479,7 @@ function renderStressTestResult(st) {
       </div>
 
       <div class="p-3 rounded-xl border border-amber-200 bg-amber-50/50">
-        <div class="text-[11px] font-semibold text-amber-900">Tổn thất Dự kiến (Total EL)</div>
+        <div class="text-[11px] font-semibold text-amber-900">Tổng EL</div>
         <div class="text-base font-extrabold text-amber-900 font-mono mt-0.5">
           ${Number(stressP.total_expected_loss ?? 0).toFixed(2)} tr
         </div>
@@ -1489,7 +1489,7 @@ function renderStressTestResult(st) {
       </div>
 
       <div class="p-3 rounded-xl border border-sky-200 bg-sky-50/50">
-        <div class="text-[11px] font-semibold text-sky-900">PD Bình quân & RAROC</div>
+        <div class="text-[11px] font-semibold text-sky-900">PD TB & RAROC</div>
         <div class="text-base font-extrabold text-sky-950 font-mono mt-0.5">
           PD: ${Number(stressP.average_pd_percent ?? 0).toFixed(2)}%
         </div>
@@ -1499,12 +1499,12 @@ function renderStressTestResult(st) {
       </div>
 
       <div class="p-3 rounded-xl border border-rose-200 bg-rose-50/60">
-        <div class="text-[11px] font-semibold text-rose-900">Hồ sơ Hạ bậc Rủi ro</div>
+        <div class="text-[11px] font-semibold text-rose-900">Số hồ sơ hạ hạng</div>
         <div class="text-base font-extrabold text-rose-900 font-mono mt-0.5">
           ${imp.downgraded_count ?? 0} / ${st.total_applicants ?? 15} hồ sơ
         </div>
         <div class="text-[11px] font-mono text-rose-800 mt-0.5">
-          Bị chuyển sang Từ chối: +${imp.newly_rejected_count ?? 0} HS
+          Chuyển sang từ chối: +${imp.newly_rejected_count ?? 0} HS
         </div>
       </div>
     `;
@@ -1559,7 +1559,7 @@ function renderStressTestResult(st) {
     if (affected.length === 0) {
       listBox.innerHTML = `
         <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 font-medium">
-          ✓ Không có hồ sơ nào bị hạ hạng rủi ro hoặc thay đổi quyết định ở mức sốc hiện tại.
+          Không có hồ sơ nào bị hạ hạng.
         </div>
       `;
     } else {
@@ -1646,7 +1646,7 @@ async function compileLiveDrl() {
       banner.className =
         "p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 text-xs font-semibold";
       banner.textContent =
-        `✓ Biên dịch KieBase thành công! Package: ${data.compile_info.package_name} • Tổng số luật active: ${data.compile_info.total_rules} • AlphaNodes: ${data.compile_info.rete_stats.unique_alpha_nodes}. Kết quả hồ sơ hiện tại đã được cập nhật!`;
+        `Biên dịch xong: ${data.compile_info.total_rules} luật, ${data.compile_info.rete_stats.unique_alpha_nodes} AlphaNode. Đã chấm lại hồ sơ hiện tại.`;
     }
     if (data.test_evaluation) {
       STATE.currentEvaluation = data.test_evaluation;
@@ -1656,7 +1656,7 @@ async function compileLiveDrl() {
     if (banner) {
       banner.className =
         "p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-semibold";
-      banner.textContent = `✕ Lỗi cú pháp DRL: ${err.message}`;
+      banner.textContent = `Lỗi DRL: ${err.message}`;
     }
   }
 }
@@ -1679,7 +1679,7 @@ async function resetDefaultDrl() {
     if (banner) {
       banner.className =
         "p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold";
-      banner.textContent = "✓ Đã khôi phục tập luật rules/credit_approval.drl gốc và biên dịch lại KieBase.";
+      banner.textContent = "Đã khôi phục credit_approval.drl gốc.";
     }
     if (data.test_evaluation) {
       STATE.currentEvaluation = data.test_evaluation;
@@ -1739,11 +1739,10 @@ function renderMultiParadigmComparison(cmp) {
     banner.innerHTML = `
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <strong>✓ ĐỒNG THUẬN KẾT QUẢ 100% GIỮA 3 CÔNG CỤ RULE-BASED</strong> trên Hồ sơ <code>${app.applicant_id} – ${escapeHtml(app.full_name)}</code>:
-          Cả <strong>Drools (.drl)</strong>, <strong>CLIPS (.clp)</strong> và <strong>Prolog (.pl)</strong> đều hội tụ về cùng Quyết định <code>${cmp.drools.decision}</code>, Hạng <code>${cmp.drools.risk_tier}</code>, Điểm <code>${cmp.drools.composite_score}/100</code>, Hạn mức <code>${cmp.drools.approved_amount} triệu</code>, Lãi suất <code>${cmp.drools.interest_rate}%/năm</code>.
+          Hồ sơ <code>${app.applicant_id}</code> (${escapeHtml(app.full_name)}): Drools, CLIPS và Prolog đều ra <code>${cmp.drools.decision}</code>, hạng <code>${cmp.drools.risk_tier}</code>, điểm ${cmp.drools.composite_score}, hạn mức ${cmp.drools.approved_amount} triệu, lãi suất ${cmp.drools.interest_rate}%.
         </div>
         <span class="px-2.5 py-1 rounded bg-emerald-600 text-white font-mono text-xs font-bold shrink-0">
-          EQUIVALENCE: 100%
+          Khớp
         </span>
       </div>
     `;
@@ -1758,21 +1757,21 @@ function renderMultiParadigmComparison(cmp) {
       border: "border-sky-500",
       bg: "bg-sky-50/50",
       badgeBg: "bg-sky-600",
-      traceTitle: "Nhật ký Suy diễn Tiến PHREAK & 4 Tầng Agenda-Group:",
+      traceTitle: "Vết suy diễn (Drools):",
     },
     {
       data: cmp.clips,
       border: "border-amber-500",
       bg: "bg-amber-50/50",
       badgeBg: "bg-amber-600",
-      traceTitle: "Nhật ký Suy diễn Tiến Classic Rete & Fact-List (f-1, f-2):",
+      traceTitle: "Vết suy diễn (CLIPS):",
     },
     {
       data: cmp.prolog,
       border: "border-teal-600",
       bg: "bg-teal-50/50",
       badgeBg: "bg-teal-700",
-      traceTitle: "Cây Chứng minh Suy diễn Lùi SLD Resolution (CALL/EXIT/CUT !):",
+      traceTitle: "Vết chứng minh (Prolog):",
     },
   ];
 
@@ -1845,7 +1844,7 @@ function renderGoalSeekingResult(gs) {
   if (gs.already_achieved) {
     box.innerHTML = `
       <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-950 font-semibold">
-        ✓ Hồ sơ hiện tại đã đạt trạng thái <code>${gs.current_decision}</code> (Hạng <code>${gs.current_tier}</code>, Điểm <code>${gs.current_score}/100</code>) thỏa mãn mục tiêu <code>${gs.target_goal}</code>!
+        Hồ sơ đã đạt mục tiêu: <code>${gs.current_decision}</code>, hạng <code>${gs.current_tier}</code>, điểm <code>${gs.current_score}</code>.
       </div>
     `;
     return;
@@ -1858,14 +1857,14 @@ function renderGoalSeekingResult(gs) {
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div class="font-extrabold text-sky-950 text-sm">${escapeHtml(p.plan_title)}</div>
           <span class="px-2.5 py-0.5 rounded bg-emerald-600 text-white font-mono text-xs font-bold">
-            ✓ Đã kiểm chứng trên KieSession: ${p.achieved_decision} (${p.achieved_tier} • ${p.achieved_score}đ • LS ${p.achieved_rate}%)
+            Chạy lại cho kết quả: ${p.achieved_decision} (${p.achieved_tier} • ${p.achieved_score}đ • LS ${p.achieved_rate}%)
           </span>
         </div>
         <ul class="space-y-1 text-slate-800 pl-1">
           ${p.actions.map((a) => `<li>• <strong>${escapeHtml(a)}</strong></li>`).join("")}
         </ul>
         <div class="font-mono text-[11px] text-sky-800 pt-1">
-          Chuỗi luật kích hoạt sau điều chỉnh: ${p.fired_rules.join(" → ")}
+          Luật đã chạy: ${p.fired_rules.join(" → ")}
         </div>
       </div>`
     )
@@ -1874,7 +1873,7 @@ function renderGoalSeekingResult(gs) {
   box.innerHTML = `
     <div class="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 font-semibold">
       Trạng thái hiện tại: Quyết định <code>${gs.current_decision}</code> • Hạng <code>${gs.current_tier}</code> • Điểm <code>${gs.current_score}/100</code>.
-      Dưới đây là các lộ trình thay đổi tối thiểu (Counterfactual Plans) được suy diễn ngược từ điều kiện LHS của các luật mục tiêu:
+      Các phương án thay đổi hồ sơ:
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       ${plansHtml}
@@ -1893,7 +1892,7 @@ function renderRuleVerificationMatrix() {
         <div class="flex items-center justify-between gap-2">
           <span class="font-mono text-[11px] font-bold text-emerald-800">${c.check_id}</span>
           <span class="px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[10px] font-bold">
-            ✓ ${escapeHtml(c.status_badge)}
+            ${escapeHtml(c.status_badge)}
           </span>
         </div>
         <div class="font-bold text-slate-900 text-xs">${escapeHtml(c.title)}</div>
@@ -1914,7 +1913,7 @@ function exportCreditMemoReport() {
 
   const win = window.open("", "_blank", "width=920,height=780");
   if (!win) {
-    alert("Vui lòng cho phép mở cửa sổ bật lên (Pop-up) để in Tờ trình Thẩm định.");
+    alert("Trình duyệt đang chặn pop-up, hãy cho phép để in.");
     return;
   }
 
@@ -1942,21 +1941,21 @@ function exportCreditMemoReport() {
     </head>
     <body>
       <div class="no-print" style="margin-bottom: 16px; text-align: right;">
-        <button class="btn-print" onclick="window.print()">🖨️ In hoặc Lưu PDF</button>
+        <button class="btn-print" onclick="window.print()">In / Lưu PDF</button>
       </div>
       <div class="header">
         <div>
-          <h1>TỜ TRÌNH HỖ TRỢ RA QUYẾT ĐỊNH THẨM ĐỊNH & ĐỊNH GIÁ TÍN DỤNG</h1>
-          <div style="font-size: 12px; color: #475569;">Hệ thống Hỗ trợ Ra quyết định (Rule-Based DSS) • Nhóm 1 • Đề 08: Apache KIE / Drools</div>
+          <h1>TỜ TRÌNH THẨM ĐỊNH TÍN DỤNG</h1>
+          <div style="font-size: 12px; color: #475569;">Nhóm 1 – Đề 08 – Drools</div>
         </div>
         <div style="text-align: right; font-size: 12px;">
           <div><strong>Mã Hồ sơ:</strong> ${escapeHtml(app.applicant_id)}</div>
-          <div><strong>Số chu kỳ suy diễn:</strong> ${eng.total_cycles} Cycles</div>
+          <div><strong>Số chu kỳ suy diễn:</strong> ${eng.total_cycles}</div>
         </div>
       </div>
 
       <div class="decision-box">
-        <div style="font-size: 12px; font-weight: bold; color: #0369a1;">KẾT LUẬN KHUYẾN NGHỊ CỦA BỘ MÁY SUY DIỄN DROOLS:</div>
+        <div style="font-size: 12px; font-weight: bold; color: #0369a1;">KẾT LUẬN:</div>
         <div style="font-size: 20px; font-weight: 800; margin-top: 4px;">${escapeHtml(sum.decision_label)}</div>
         <div style="font-size: 13px; margin-top: 4px;">
           <strong>Điểm tín dụng tổng hợp:</strong> ${sum.composite_score}/100 &nbsp;|&nbsp;
@@ -1967,7 +1966,7 @@ function exportCreditMemoReport() {
         </div>
       </div>
 
-      <h2>1. Thông tin Hồ sơ Khách hàng (Working Memory Fact: Applicant)</h2>
+      <h2>1. Thông tin khách hàng</h2>
       <table>
         <tr>
           <th>Họ và tên</th><td>${escapeHtml(app.full_name)}</td>
@@ -1987,11 +1986,11 @@ function exportCreditMemoReport() {
         </tr>
         <tr>
           <th>Lịch sử nợ xấu CIC</th><td>${app.cic_bad_debt ? "Có nợ xấu nhóm 3-5" : "Không có nợ xấu"}</td>
-          <th>Phân khúc Khách hàng</th><td>${app.is_vip ? "Khách hàng VIP" : "Khách hàng Tiêu chuẩn"}</td>
+          <th>Phân khúc Khách hàng</th><td>${app.is_vip ? "Khách hàng VIP" : "Thường"}</td>
         </tr>
       </table>
 
-      <h2>2. Chỉ số Định lượng Rủi ro Tín dụng Chuẩn Ngân hàng Basel III</h2>
+      <h2>2. Chỉ số rủi ro (Basel III)</h2>
       <table>
         <tr>
           <th>PD (Probability of Default 12M)</th><td>${Number(sum.pd_percent ?? 0).toFixed(2)}%</td>
@@ -2007,14 +2006,14 @@ function exportCreditMemoReport() {
         </tr>
       </table>
 
-      <h2>3. Chuỗi Luật Kích hoạt & Diễn giải Suy diễn Tiến (Forward Chaining Trace)</h2>
+      <h2>3. Chuỗi luật đã chạy & Diễn giải Suy diễn Tiến (Forward Chaining Trace)</h2>
       <div style="font-family: monospace; font-size: 13px; margin-bottom: 8px;">
         <strong>Chuỗi kích hoạt:</strong> ${eng.fired_rules.join(" → ")}
       </div>
       <ul style="font-size: 13px;">${reasonsHtml}</ul>
 
-      <h2>4. Khuyến nghị Hành động của Hệ thống Hỗ trợ Ra quyết định (DSS Recommendations)</h2>
-      <ul style="font-size: 13px;">${recsHtml || "<li>Đủ điều kiện giải ngân theo quy định chuẩn.</li>"}</ul>
+      <h2>4. Khuyến nghị</h2>
+      <ul style="font-size: 13px;">${recsHtml || "<li>Không có.</li>"}</ul>
     </body>
     </html>
   `);
@@ -2029,7 +2028,7 @@ function downloadAuditJson() {
   const appId = STATE.currentEvaluation.applicant.applicant_id || "CUSTOM";
   const payload = {
     exported_at: new Date().toISOString(),
-    project: "DSS - Nhom 1 - De 08: DROOLS Rule Engine (V3 Ultimate)",
+    project: "DSS - Nhom 1 - De 08 - Drools",
     evaluation: STATE.currentEvaluation,
     rule_verification: STATE.ruleVerification,
   };
@@ -2049,7 +2048,7 @@ function downloadAuditJson() {
 function exportBatchResultsCsv() {
   const batch = STATE.currentBatch;
   if (!batch || !batch.items || batch.items.length === 0) {
-    alert("Đang tải dữ liệu chấm điểm hàng loạt, vui lòng thử lại sau giây lát.");
+    alert("Chưa có dữ liệu, thử lại sau.");
     return;
   }
   const headers = [
@@ -2207,7 +2206,7 @@ async function uploadCustomBatchCsv(event) {
     if (data.status !== "OK") throw new Error(data.message);
     renderBatchPortfolio(data.batch);
   } catch (err) {
-    alert("Lỗi khi nạp file CSV (RFC 4180): " + err.message);
+    alert("Lỗi đọc file CSV: " + err.message);
   } finally {
     event.target.value = "";
   }

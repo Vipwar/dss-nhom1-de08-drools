@@ -71,7 +71,7 @@ code, pre, .font-mono {
 
 /* Header & Navigation */
 .top-navbar {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: #0f172a;
   color: #ffffff;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   position: sticky;
@@ -296,8 +296,7 @@ code, pre, .font-mono {
 
 .pipeline-node.active-glow {
   border-color: #0284c7;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  box-shadow: 0 0 14px rgba(2, 132, 199, 0.22);
+  background: #f0f9ff;
 }
 
 /* Form controls */
@@ -323,7 +322,7 @@ code, pre, .font-mono {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  background: #0284c7;
   color: #ffffff;
   font-weight: 600;
   font-size: 0.875rem;
@@ -336,7 +335,7 @@ code, pre, .font-mono {
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  background: #0369a1;
   transform: translateY(-1px);
 }
 
@@ -417,7 +416,7 @@ code, pre, .font-mono {
 
 /* Basel III Quantitative Risk Strip & Risk Migration Matrix */
 .basel-strip {
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  background: #f8fafc;
   border: 1px solid #cbd5e1;
   border-radius: 0.85rem;
   padding: 0.9rem 1rem;

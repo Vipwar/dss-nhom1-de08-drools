@@ -69,12 +69,11 @@ class RuleBaseVerifier:
 
         return {
             "check_id": "VV_01_REDUNDANCY",
-            "title": "1. Kiểm tra Luật Dư thừa / Trùng lặp (Redundancy & Subsumption Check)",
+            "title": "1. Luật trùng lặp",
             "passed": len(duplicates) == 0,
-            "status_badge": "PASSED (0 Luật trùng)",
+            "status_badge": "0 luật trùng",
             "details": (
-                f"Đã quét {len(rules)} luật trên 4 tầng agenda-group: Tất cả các tổ hợp điều kiện WHEN (LHS) "
-                "đều phân biệt ngữ nghĩa rõ ràng, không có hai luật nào trùng chữ ký điều kiện."
+                f"Quét {len(rules)} luật trên 4 tầng agenda-group: không có hai luật nào trùng điều kiện WHEN."
                 if not duplicates
                 else "; ".join(duplicates)
             ),
@@ -104,13 +103,12 @@ class RuleBaseVerifier:
         )
         return {
             "check_id": "VV_02_CONFLICT_CONTROL",
-            "title": "2. Kiểm tra Mâu thuẫn & Giải quyết Xung đột (Ambivalence & Conflict Resolution Check)",
+            "title": "2. Xử lý xung đột giữa các luật",
             "passed": passed,
-            "status_badge": "PASSED (3 Activation-Groups chặt chẽ)",
+            "status_badge": "3 activation-group",
             "details": (
-                "Tất cả các luật cạnh tranh đầu ra đều được khóa bằng activation-group độc quyền "
-                "('hard-knockout' ở Tầng 1, 'risk-tier-assignment' ở Tầng 2, 'final-decision' ở Tầng 3) "
-                "kèm trọng số Salience phân biệt tuyệt đối (không xảy ra trạng thái quyết định nhập nhằng)."
+                "Các luật cùng gán kết quả được gom vào 3 activation-group "
+                "('hard-knockout', 'risk-tier-assignment', 'final-decision') với salience khác nhau."
             ),
         }
 
@@ -144,12 +142,11 @@ class RuleBaseVerifier:
 
         return {
             "check_id": "VV_03_REACHABILITY",
-            "title": "3. Kiểm tra Khả năng Kích hoạt & Luật Chết (Reachability / Dead-Rule Analysis)",
+            "title": "3. Luật không bao giờ chạy (dead rule)",
             "passed": len(unreached_core) == 0,
-            "status_badge": f"PASSED ({len(fired_set)}/{len(rules)} Luật kích hoạt)",
+            "status_badge": f"{len(fired_set)}/{len(rules)} luật đã chạy",
             "details": (
-                f"Toàn bộ 20/20 luật cốt lõi (R01–R20) và 3/3 luật Bảng quyết định (DT01–DT03) đều có tập dữ liệu "
-                "kích hoạt thành công trên mạng Rete/PHREAK (0 luật chết / Unreachable Rules)."
+                "Cả 20 luật R01–R20 và 3 luật DT01–DT03 đều có hồ sơ làm luật chạy được."
             ),
         }
 
@@ -161,12 +158,11 @@ class RuleBaseVerifier:
         ]
         return {
             "check_id": "VV_04_TERMINATION",
-            "title": "4. Kiểm tra Tính Dừng Hữu hạn & Chống Lặp Vô hạn (Termination & No-Loop Check)",
+            "title": "4. Dừng hữu hạn (tránh lặp vô hạn)",
             "passed": len(unsafe_rules) == 0,
-            "status_badge": "PASSED (100% no-loop & lock-on-active)",
+            "status_badge": "Có no-loop & lock-on-active",
             "details": (
-                "Tất cả 23/23 luật đều được bảo vệ bởi thuộc tính 'no-loop true' và 'lock-on-active true', "
-                "cùng thứ tự đơn điệu của 4 tầng agenda-group. Đảm bảo mọi phiên suy diễn dừng hữu hạn sau 2–8 chu kỳ."
+                "Các luật gọi modify() đều khai báo no-loop và lock-on-active, chạy theo thứ tự 4 tầng agenda-group."
             ),
         }
 
@@ -180,13 +176,12 @@ class RuleBaseVerifier:
 
         return {
             "check_id": "VV_05_COMPLETENESS",
-            "title": "5. Kiểm tra Độ Phủ Không gian Quyết định (Decision Space Completeness Check)",
+            "title": "5. Độ phủ miền điểm và hạng rủi ro",
             "passed": covered_all,
-            "status_badge": "PASSED (Độ phủ 100% không gian)",
+            "status_badge": "Đủ 4 khoảng điểm",
             "details": (
-                "Phân hoạch Tầng 1 bao phủ 100% miền {Tuổi x CIC x DTI}; Phân hoạch Tầng 2 bao phủ 100% miền điểm "
-                "(-∞, 40) ∪ [40, 60) ∪ [60, 80) ∪ [80, +∞); Phân hoạch Tầng 3 ánh xạ toàn ánh 4 hạng rủi ro "
-                "{TIER_A, TIER_B (Secured/Unsecured), TIER_C, TIER_D} sang quyết định cuối cùng (0 khoảng trống logic)."
+                "Tầng 2 chia miền điểm thành (<40), [40, 60), [60, 80), (>=80); "
+                "Tầng 3 gán quyết định cho tất cả 4 hạng TIER_A..TIER_D."
             ),
         }
 
@@ -276,7 +271,7 @@ class BackwardGoalSeeker:
             plans.append(
                 {
                     "plan_id": "PLAN_A_COLLATERAL_BOOST",
-                    "plan_title": "Phương án 1 (Tối ưu Lãi suất & Duyệt 100%): Bổ sung Tài sản Đảm bảo & Chuẩn hóa Thu nhập",
+                    "plan_title": "Cách 1: Bổ sung tài sản đảm bảo và thu nhập",
                     "actions": actions_a,
                     "achieved_decision": eval_a["summary"]["decision"],
                     "achieved_tier": eval_a["summary"]["risk_tier"],
@@ -308,7 +303,7 @@ class BackwardGoalSeeker:
             plans.append(
                 {
                     "plan_id": "PLAN_B_UNSECURED_TIER_A",
-                    "plan_title": "Phương án 2 (Vay Tín chấp Hạng A): Tối ưu Thu nhập, Điểm Tín dụng & Hạ DTI <= 35%",
+                    "plan_title": "Cách 2: Giữ vay tín chấp, tăng thu nhập / điểm tín dụng và hạ DTI",
                     "actions": actions_b,
                     "achieved_decision": eval_b["summary"]["decision"],
                     "achieved_tier": eval_b["summary"]["risk_tier"],

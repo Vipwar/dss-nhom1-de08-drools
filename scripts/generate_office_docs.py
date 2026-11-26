@@ -220,7 +220,7 @@ def build_powerpoint_slides() -> None:
     slides_data: List[Tuple[str, str, List[str], str]] = [
         (
             "SLIDE 01 • ĐỒ ÁN CUỐI KỲ MÔN HỆ THỐNG HỖ TRỢ RA QUYẾT ĐỊNH (DSS)",
-            "Đề 08: Công cụ DROOLS – Phiên bản V3 Ultimate (Drools • CLIPS • Prolog • Basel III)",
+            "Đề 08: Công cụ DROOLS (Drools • CLIPS • Prolog • Basel III)",
             [
                 "• Nhóm thực hiện: Nhóm 1",
                 "• Bài toán ứng dụng: Hệ thống Hỗ trợ Ra quyết định Thẩm định Tín dụng, Xếp hạng Rủi ro, Định lượng Basel III & Định giá Khoản vay Cá nhân",
@@ -228,7 +228,7 @@ def build_powerpoint_slides() -> None:
                 "• Kiểm thử tự động: 28/28 Unit, Security, Basel III & Fuzzing Tests PASS (100%) | 100/100 Fuzzing Equivalence | Rule V&V: 5/5 Đạt 100%",
                 "• Kho mã nguồn GitHub: https://github.com/Vipwar/dss-nhom1-de08-drools",
             ],
-            "Lời dẫn: Xin chào Thầy/Cô và các bạn. Hôm nay Nhóm 1 xin trình bày Đồ án cuối kỳ môn Hệ thống Hỗ trợ Ra quyết định với Đề tài 08 – Công cụ Drools phiên bản V3 Ultimate thuộc nhóm Rule-Based DSS.",
+            "Lời dẫn: Xin chào Thầy/Cô và các bạn. Hôm nay Nhóm 1 xin trình bày Đồ án cuối kỳ môn Hệ thống Hỗ trợ Ra quyết định với Đề tài 08 – Công cụ Drools thuộc nhóm Rule-Based DSS.",
         ),
         (
             "SLIDE 02 • TỔNG QUAN VỀ HỆ HỖ TRỢ RA QUYẾT ĐỊNH DỰA TRÊN LUẬT (RULE-BASED DSS)",
@@ -236,7 +236,7 @@ def build_powerpoint_slides() -> None:
             [
                 "• Phân loại DSS (Turban et al.): Knowledge-driven / Rule-based DSS kết hợp Cơ sở tri thức (Knowledge Base) với Bộ máy suy diễn (Inference Engine).",
                 "• Bài toán Thẩm định & Định giá Tín dụng là bài toán bán cấu trúc (Semi-structured): đòi hỏi tuân thủ quy chế cứng (CIC, DTI) kết hợp đánh giá rủi ro đa chiều.",
-                "• 3 Ưu thế vượt trội của Rule-Based DSS:",
+                "• 3 ưu điểm chính của Rule-Based DSS:",
                 "  1. Tách biệt hoàn toàn Luật nghiệp vụ (.drl / .csv) khỏi Mã nguồn ứng dụng (Hot-Reload chính sách không cần sửa code).",
                 "  2. Suy diễn đa tầng tự động (Multi-stage Chaining) có kiểm soát xung đột chặt chẽ.",
                 "  3. Giải thích hộp trắng minh bạch 100% (White-box Explainability & Audit Trail cho Hội đồng Tín dụng).",
@@ -245,7 +245,7 @@ def build_powerpoint_slides() -> None:
         ),
         (
             "SLIDE 03 • GIỚI THIỆU NỀN TẢNG APACHE KIE / RED HAT DROOLS",
-            "Hệ quản trị Luật Nghiệp vụ Doanh nghiệp (Enterprise BRMS) hàng đầu thế giới",
+            "Hệ quản trị Luật Nghiệp vụ Doanh nghiệp (Enterprise BRMS) phổ biến trong doanh nghiệp",
             [
                 "• Nguồn gốc: Khởi đầu từ JBoss Rules / Red Hat Decision Manager, hiện thuộc hệ sinh thái mã nguồn mở Apache KIE (Knowledge Is Everything).",
                 "• 4 Trụ cột công nghệ tạo nên sức mạnh của Drools:",
@@ -271,13 +271,13 @@ def build_powerpoint_slides() -> None:
             "SLIDE 05 • KIẾN TRÚC LÕI CỦA BỘ MÁY DROOLS V3 ULTIMATE & BẢO MẬT SAFE AST",
             "Chuẩn Apache KIE tích hợp SafeASTEvaluator Sandbox & StrictInputSanitizer",
             [
-                "• 1. KieBase & SafeASTEvaluator: Biên dịch .drl + Decision Table CSV qua trình thông dịch cây cú pháp AST thuần (không dùng eval/compile), chặn tuyệt đối 100% lỗ hổng Code Injection trên Live DRL Studio.",
-                "• 2. KieSession & StrictInputSanitizer: Quản lý FactHandle (insert, modify, delete, insertLogical) kèm bộ chuẩn hóa biên chống chia cho 0 tuyệt đối.",
+                "• 1. KieBase & SafeASTEvaluator: Biên dịch .drl + Decision Table CSV qua trình thông dịch cây cú pháp AST thuần (không dùng eval/compile), chặn chèn mã (Code Injection) trên Live DRL Studio.",
+                "• 2. KieSession & StrictInputSanitizer: Quản lý FactHandle (insert, modify, delete, insertLogical) kèm bộ chuẩn hóa biên tránh lỗi chia cho 0.",
                 "• 3. RetePhreakNetwork: Đồ thị 5 lớp nút EntryPointNode -> ObjectTypeNode -> AlphaNode -> BetaNode -> RuleTerminalNode.",
                 "• 4. Agenda & ConflictResolver: Quản lý Focus Stack của 4 tầng agenda-group, giải quyết xung đột theo Salience & Activation-Group.",
                 "• 5. AgendaEventListener: Ghi nhận toàn bộ hồ sơ truy vết (Cycle, Conflict Set, Fact Diff Before/After, Cancelled Rules, TMS Events).",
             ],
-            "Lời dẫn: Phiên bản V3 Ultimate bổ sung SafeASTEvaluator bảo vệ tuyệt đối Live DRL Studio khỏi Code Injection và StrictInputSanitizer chống chia cho 0.",
+            "Lời dẫn: Phiên bản bổ sung SafeASTEvaluator ngăn chèn mã trên mục sửa luật DRL và StrictInputSanitizer chống chia cho 0.",
         ),
         (
             "SLIDE 06 • GIẢI PHẪU MẠNG RETE / PHREAK & INCREMENTAL ALPHA MEMORY CACHE",
@@ -285,14 +285,14 @@ def build_powerpoint_slides() -> None:
             [
                 "• Lớp 1 – EntryPointNode & ObjectTypeNode: Phân luồng tự động đối tượng vào OTN_Applicant và OTN_EligibilityPassed.",
                 "• Lớp 2 – Alpha Network & Node Sharing: Gom các điều kiện đơn trùng nhau giữa 23 luật thành các AlphaNode dùng chung duy nhất.",
-                "• Tối ưu V3 – Incremental Alpha Memory Cache: Lưu đệm kết quả lọc theo cặp khóa (handle_id, fact.recency) trên từng AlphaNode, tránh tính lại biểu thức cho các Fact không đổi sau lệnh modify(), kèm thống kê cache_hits trực tiếp!",
+                "• Bổ sung: Incremental Alpha Memory Cache: Lưu đệm kết quả lọc theo cặp khóa (handle_id, fact.recency) trên từng AlphaNode, tránh tính lại biểu thức cho các Fact không đổi sau lệnh modify(), kèm thống kê cache_hits trực tiếp!",
                 "• Lớp 3 & 4 – Beta Network (13 nút Join 2-Fact EligibilityPassed ⋈ Applicant) -> RuleTerminalNode sinh Activation vào Agenda.",
             ],
-            "Lời dẫn: Bên cạnh Alpha Node Sharing, nhóm cài đặt thêm Incremental Alpha Memory Cache theo (handle_id, fact.recency) giúp tăng tốc độ suy diễn vượt trội.",
+            "Lời dẫn: Bên cạnh Alpha Node Sharing, nhóm cài đặt thêm Incremental Alpha Memory Cache theo (handle_id, fact.recency) giúp giảm số lần tính lại điều kiện.",
         ),
         (
             "SLIDE 07 • GIẢI QUYẾT XUNG ĐỘT (CONFLICT RESOLUTION) & BẢO TOÀN CHÂN LÝ (TMS)",
-            "Cơ chế kiểm soát tất định 100% thứ tự nổ luật và tự động thu hồi Fact suy diễn",
+            "Kiểm soát thứ tự kích hoạt luật và tự động thu hồi Fact suy diễn",
             [
                 "• Chiến lược Giải quyết Xung đột (Conflict Resolution Strategy) theo 5 cấp:",
                 "  (1) agenda-group trên đỉnh Focus Stack -> (2) salience từ cao xuống thấp -> (3) activation-group hủy tự động các luật cùng nhóm -> (4) no-loop & lock-on-active chống lặp vô hạn -> (5) recency.",
@@ -351,11 +351,11 @@ def build_powerpoint_slides() -> None:
                 "  - Ở APP015, cả R02(sal:98) và R03(sal:95) cùng vào Conflict Set; R02 thắng và hủy R03 nhờ activation-group 'hard-knockout'.",
                 "  - Không sinh EligibilityPassed -> Cắt nhánh hoàn toàn 13 luật Tầng 2 & Tầng 3, nhảy thẳng sang R20 (chỉ tốn 2 chu kỳ!).",
             ],
-            "Lời dẫn: Kịch bản 4 và Kịch bản 15 là bằng chứng sống động nhất về hiệu quả của Salience và Activation-Group.",
+            "Lời dẫn: Kịch bản 4 và Kịch bản 15 là ví dụ minh họa rõ về hiệu quả của Salience và Activation-Group.",
         ),
         (
             "SLIDE 12 • KIỂM ĐỊNH TẬP LUẬT (FORMAL V&V), GOAL-SEEKING & STRESS-TESTING BASEL III",
-            "Quản trị chất lượng tri thức toàn diện và mô phỏng cú sốc kinh tế vĩ mô",
+            "Kiểm tra tập luật, suy diễn ngược và stress test danh mục",
             [
                 "• Bộ Kiểm định Tập luật Tự động (RuleBaseVerifier – 5/5 Tiêu chuẩn V&V PASSED 100%):",
                 "  Redundancy Check, Conflict Control, Reachability (23/23 luật), Termination Safety & Decision Space Completeness.",
@@ -378,15 +378,15 @@ def build_powerpoint_slides() -> None:
                 "• 6. Chấm điểm Hàng loạt (Trình đọc CSV chuẩn RFC 4180), Khung Basel III Stress-Testing & Live DRL Studio (SafeAST Sandbox).",
                 "• 7. Tab Đối sánh Thực nghiệm Drools (.drl) vs CLIPS (.clp) vs Prolog (.pl) + Goal-Seeker + Ma trận Kiểm định V&V.",
             ],
-            "Lời dẫn: Giao diện Web Dashboard V3 Ultimate bổ sung dải chỉ số Basel III, khung Stress-Testing danh mục và trình đọc CSV chuẩn RFC 4180.",
+            "Lời dẫn: Giao diện Web Dashboard bổ sung dải chỉ số Basel III, khung Stress-Testing danh mục và trình đọc CSV chuẩn RFC 4180.",
         ),
         (
             "SLIDE 14 • KẾT QUẢ THỰC NGHIỆM, FUZZING 100 HỒ SƠ & KIỂM THỬ (28/28 PASS 100%)",
-            "Chứng minh tương đương tuyệt đối 3 bộ máy & độ tin cậy cấp độ doanh nghiệp",
+            "Đối chiếu kết quả 3 bộ máy và kết quả chạy 28 bài kiểm thử",
             [
                 "• Kết quả Chấm điểm Danh mục 15 Hồ sơ Mẫu (data/sample_applicants.csv):",
                 "  APPROVED: 5 HS (33.3%) | CONDITIONAL: 2 HS (13.3%) | MANUAL_REVIEW: 3 HS (20.0%) | REJECTED: 5 HS (33.3%).",
-                "• Kiểm thử Tự động Toàn diện (`python3 -m unittest discover -s tests -v`): Đạt 28/28 Test Cases PASS 100%!",
+                "• Kết quả Kiểm thử Tự động (`python3 -m unittest discover -s tests -v`): Đạt 28/28 Test Cases PASS 100%!",
                 "  - test_25: SafeASTEvaluator chặn 100% payload Code Injection & StrictInputSanitizer chống chia cho 0.",
                 "  - test_26: Kiểm chứng Incremental Alpha Memory Cache hits theo (handle_id, fact.recency).",
                 "  - test_27: Kiểm chứng chỉ số Basel III (PD, LGD, EAD, EL, RAROC) & API POST /api/stress-test.",
@@ -396,7 +396,7 @@ def build_powerpoint_slides() -> None:
         ),
         (
             "SLIDE 15 • KỊCH BẢN DEMO TRỰC TIẾP 5 PHÚT TRÊN WEB DASHBOARD",
-            "Trình tự thao tác ghi điểm tuyệt đối trước Hội đồng chấm thi",
+            "Gợi ý trình tự thao tác khi trình bày",
             [
                 "• Phút 1: Bấm 1-Click Kịch bản 1 (VIP Hạng A) xem quyết định + chỉ số Basel III (PD, LGD, EL, RAROC) đối chiếu Kịch bản 5 (Knock-out CIC).",
                 "• Phút 2: Chọn Kịch bản 4 (Xung đột Hạng C), bấm '▶ Chạy từng bước (Replay)' xem Alpha Cache Hits & bấm 'Minh họa TMS (insertLogical)'.",
@@ -410,7 +410,7 @@ def build_powerpoint_slides() -> None:
             "SLIDE 16 • TỔNG KẾT & THẢO LUẬN / PHẢN BIỆN (Q&A)",
             "Cảm ơn Giảng viên và các bạn đã theo dõi phần trình bày của Nhóm 1!",
             [
-                "• Tổng kết đóng góp của Đồ án Đề 08 – Nhóm 1 (V3 Ultimate):",
+                "• Tổng kết đóng góp của Đồ án Đề 08 – Nhóm 1:",
                 "  1. Làm chủ kiến trúc Apache KIE / Drools (Rete/PHREAK, Incremental Alpha Cache, SafeASTEvaluator, Agenda-Group, Activation-Group, TMS).",
                 "  2. Chứng minh tương đương 100% giữa Drools (.drl), NASA CLIPS (.clp) và SWI-Prolog (.pl) trên cả 15 hồ sơ mẫu và 100 hồ sơ Fuzzing.",
                 "  3. Tích hợp trọn vẹn mô hình định lượng rủi ro ngân hàng Basel III (PD, LGD, EAD, EL, RAROC) & Stress-Testing danh mục vĩ mô (28/28 Tests PASS).",

@@ -402,15 +402,8 @@ class DroolsDSSRequestHandler(BaseHTTPRequestHandler):
 
 def run_server(host: str = "0.0.0.0", port: int = 8000) -> None:
     server = ThreadingHTTPServer((host, port), DroolsDSSRequestHandler)
-    print("=" * 78)
-    print("  HỆ THỐNG HỖ TRỢ RA QUYẾT ĐỊNH (DSS) - NHÓM 1 - ĐỀ 08: DROOLS RULE ENGINE")
-    print("  Bài toán: Thẩm định Tín dụng, Xếp hạng Rủi ro & Định giá Khoản vay Cá nhân")
-    print("-" * 78)
-    print(f"  * KieBase đã nạp thành công: {len(DSS_SERVICE.kie_base.rules)} luật (.drl + Decision Table)")
-    print(f"  * Đối sánh đa mô hình: Drools (.drl) vs CLIPS (.clp) vs Prolog (.pl)")
-    print(f"  * Tập dữ liệu mẫu: {len(DSS_SERVICE.load_sample_applicants())} hồ sơ tín dụng (data/sample_applicants.csv)")
-    print(f"  * Web Dashboard đang chạy tại: http://localhost:{port}")
-    print("=" * 78)
+    print(f"Đã nạp {len(DSS_SERVICE.kie_base.rules)} luật, {len(DSS_SERVICE.load_sample_applicants())} hồ sơ mẫu")
+    print(f"Server chạy tại http://localhost:{port}  (Ctrl+C để dừng)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

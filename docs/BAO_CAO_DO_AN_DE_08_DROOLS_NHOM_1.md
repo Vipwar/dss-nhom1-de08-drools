@@ -35,7 +35,7 @@
    - 4.5. Đối sánh Thực nghiệm 3 Công cụ Cùng Nhóm (`Drools .drl` vs `CLIPS .clp` vs `Prolog .pl`) & Fuzzing 100 Hồ sơ
    - 4.6. Kiểm định & Xác thực Hình thức Tập luật (`Formal Rule Base V&V`) & Suy diễn Mục tiêu Ngược (`Goal-Seeker`)
    - 4.7. Mô hình Định lượng Rủi ro Tín dụng Basel III (`PD`, `LGD`, `EAD`, `EL`, `RAROC`) & Stress-Testing Danh mục
-   - 4.8. Kết quả Kiểm thử Tự động Toàn diện (`28/28 Unit, Security, Basel III & Fuzzing Tests PASS 100%`)
+   - 4.8. Kết quả Kết quả Kiểm thử Tự động (`28/28 Unit, Security, Basel III & Fuzzing Tests PASS 100%`)
    - 4.9. Đánh giá Ưu điểm, Hạn chế và Hướng Phát triển
 5. [TÀI LIỆU THAM KHẢO](#tài-liệu-tham-khảo)
 
@@ -101,7 +101,7 @@ Các đặc trưng kỹ thuật nổi bật của **Drools**:
 
 ### 1.3. So sánh Chuyên sâu các Công cụ trong Nhóm Rule-Based: Drools vs CLIPS vs Prolog
 
-Theo đúng yêu cầu của đề bài đối với **Nhóm Rule-based (`CLIPS` hay `PROLOG` hay `DROOLS`)**, bảng dưới đây phân tích đối sánh toàn diện 3 công cụ đại diện cho 3 trường phái hệ suy diễn luật:
+Theo đúng yêu cầu của đề bài đối với **Nhóm Rule-based (`CLIPS` hay `PROLOG` hay `DROOLS`)**, bảng dưới đây so sánh 3 công cụ đại diện cho 3 trường phái hệ suy diễn luật:
 
 | Tiêu chí So sánh | **DROOLS (Apache KIE / Red Hat)** | **CLIPS (NASA / Expert System)** | **PROLOG (SWI-Prolog / Logic Programming)** |
 | :--- | :--- | :--- | :--- |
@@ -116,7 +116,7 @@ Theo đúng yêu cầu của đề bài đối với **Nhóm Rule-based (`CLIPS`
 | **9. Hỗ trợ Bảng Quyết định (Decision Table)** | **Hỗ trợ xuất sắc** (`.csv`, `.xlsx`, DMN, Web Studio) cho chuyên viên phân tích nghiệp vụ (BA/FinTech). | Không hỗ trợ nguyên bản (phải viết script chuyển đổi sang `.clp`). | Không hỗ trợ nguyên bản. |
 | **10. Ứng dụng Điển hình trong DSS** | Thẩm định tín dụng ngân hàng, chấm điểm rủi ro, định giá bảo hiểm động, phát hiện gian lận giao dịch thời gian thực. | Chẩn đoán hỏng hóc thiết bị vũ trụ/công nghiệp, hệ chuyên gia y khoa quy mô vừa. | Hệ suy luận học thuật, xử lý ngôn ngữ tự nhiên, giải bài toán ràng buộc tổ hợp, lập lịch. |
 
-> **Kết luận lựa chọn công cụ cho bài toán DSS:** Với bài toán **Thẩm định Tín dụng, Xếp hạng Rủi ro & Định giá Khoản vay Cá nhân**, quy trình nghiệp vụ của ngân hàng thương mại là một **pipeline suy diễn tiến nhiều tầng** (Sàng lọc điều kiện cứng → Chấm điểm cộng/trừ đa tiêu chí → Phân hạng rủi ro độc quyền → Định giá lãi suất & hạn mức → Sinh khuyến nghị giải thích). Do đó, **Drools** với cơ chế `agenda-group`, `activation-group`, `lock-on-active`, `insertLogical (TMS)` và `Decision Table` là công cụ phù hợp tuyệt đối.
+> **Kết luận lựa chọn công cụ cho bài toán DSS:** Với bài toán **Thẩm định Tín dụng, Xếp hạng Rủi ro & Định giá Khoản vay Cá nhân**, quy trình nghiệp vụ của ngân hàng thương mại là một **pipeline suy diễn tiến nhiều tầng** (Sàng lọc điều kiện cứng → Chấm điểm cộng/trừ đa tiêu chí → Phân hạng rủi ro độc quyền → Định giá lãi suất & hạn mức → Sinh khuyến nghị giải thích). Do đó, **Drools** với cơ chế `agenda-group`, `activation-group`, `lock-on-active`, `insertLogical (TMS)` và `Decision Table` là công cụ phù hợp.
 
 ---
 
@@ -483,13 +483,13 @@ flowchart TD
 
 ### 4.1. Kiến trúc Triển khai Bộ máy Thực thi `.drl`, `SafeASTEvaluator` & `Incremental Alpha Memory Cache`
 
-Để đảm bảo đồ án vừa tuân thủ **100% chuẩn cú pháp `.drl` và kiến trúc lõi của Apache KIE / Drools**, vừa đạt chuẩn an toàn bảo mật doanh nghiệp và chạy độc lập 100% trên mọi máy tính bằng lệnh duy nhất `python app.py`, Nhóm 1 đã thiết kế kiến trúc V3 Ultimate trên Python chuẩn:
+Để đảm bảo đồ án vừa tuân thủ **100% chuẩn cú pháp `.drl` và kiến trúc lõi của Apache KIE / Drools**, vừa chạy độc lập 100% trên mọi máy tính bằng lệnh duy nhất `python app.py`, Nhóm 1 đã thiết kế kiến trúc trên Python chuẩn:
 
 1. **Lớp Lõi Suy diễn, Bảo mật AST & Tối ưu Bộ nhớ Đệm (`engine/drools_engine.py`):**
    - Cài đặt đầy đủ `DRLParser`, `DecisionTableLoader`, `RetePhreakNetwork` (`EntryPointNode`, `ObjectTypeNode`, `AlphaNode` có Node Sharing, `BetaNode` Join 2-Fact, `RuleTerminalNode`), `KieBase`, `KieSession`, `Agenda`, `ConflictResolver`, `Truth Maintenance System (insertLogical)` và `AgendaEventListener`.
-   - **`SafeASTEvaluator` (Chặn tuyệt đối Code Injection trên Live DRL Studio):** Sử dụng module `ast` chuẩn của Python để kiểm duyệt và thông dịch trực tiếp cây cú pháp trừu tượng mà không gọi `eval()` hay `compile()`. Chỉ cho phép các node toán học, so sánh, logic, biểu thức điều kiện 3 ngôi và truy cập thuộc tính `Fact` an toàn; chặn 100% các payload nguy hiểm như `__import__('os').system(...)`, `().__class__.__base__.__subclasses__()`, `open()`, `eval()`, `exec()`, `lambda`, comprehension.
+   - **`SafeASTEvaluator` (Chặn chèn mã (Code Injection) trên Live DRL Studio):** Sử dụng module `ast` chuẩn của Python để kiểm duyệt và thông dịch trực tiếp cây cú pháp trừu tượng mà không gọi `eval()` hay `compile()`. Chỉ cho phép các node toán học, so sánh, logic, biểu thức điều kiện 3 ngôi và truy cập thuộc tính `Fact` an toàn; chặn 100% các payload nguy hiểm như `__import__('os').system(...)`, `().__class__.__base__.__subclasses__()`, `open()`, `eval()`, `exec()`, `lambda`, comprehension.
    - **`Incremental Alpha Memory Cache` theo `(handle_id, fact.recency)`:** Trên mỗi `AlphaNode`, kết quả đánh giá điều kiện của từng `FactHandle` được lưu đệm theo cặp khóa `(handle_id, fact.recency)`. Khi một luật thực thi `modify($app)`, chỉ những Fact có `recency` thay đổi mới phải tính lại biểu thức; các Fact không đổi (như `EligibilityPassed` hoặc các `Applicant` khác trong phiên đa sự kiện) đạt **Cache Hit 100%**, đồng thời xuất thống kê `cache_hits` trực tiếp trong `rete_network.stats`.
-   - **`StrictInputSanitizer`:** Chuẩn hóa dữ liệu biên nghiêm ngặt ngay tại `build_applicant_fact()`, khử `NaN`/`Inf` và chống chia cho 0 tuyệt đối (`loan_term_months >= 1`, `monthly_income >= 0.1`, `loan_amount >= 1.0`).
+   - **`StrictInputSanitizer`:** Chuẩn hóa dữ liệu biên nghiêm ngặt ngay tại `build_applicant_fact()`, khử `NaN`/`Inf` và tránh lỗi chia cho 0 (`loan_term_months >= 1`, `monthly_income >= 0.1`, `loan_amount >= 1.0`).
 2. **Lớp Tri thức & Dữ liệu (`rules/` & `data/`):**
    - `rules/credit_approval.drl`: 20 luật chuẩn cú pháp Drools DRL (`R01`–`R20`).
    - `rules/decision_table_rules.csv`: 3 luật bổ sung từ bảng quyết định (`DT01`–`DT03`).
@@ -562,7 +562,7 @@ Bảng dưới đây ghi nhận kết quả thực nghiệm khi chạy toàn b�
 3. **SWI-Prolog (`rules/credit_approval.pl`):** Suy diễn lùi hướng mục tiêu (**Backward Chaining & SLD Resolution**) với vị từ mục tiêu `evaluate_credit(Id, Decision, RiskTier, Score, ApprovedAmount, InterestRate, RejCode) :- ...` và toán tử cắt nhánh `!` (*Cut*).
 
 **Kết quả thực nghiệm đối chứng & Kiểm thử Fuzzing ngẫu nhiên (`test_20` & `test_28`):**
-- Trên toàn bộ **15/15 hồ sơ mẫu (`APP001`–`APP015`)** và **100/100 hồ sơ khách hàng sinh ngẫu nhiên (Property-Based Fuzzing bao phủ các điểm biên nhạy cảm)**, cả 3 bộ máy **Drools**, **CLIPS** và **Prolog** đều hội tụ **khớp tuyệt đối 100% (`115/115` trường hợp)** về Quyết định (`decision`), Hạng rủi ro (`risk_tier`), Điểm tổng hợp (`composite_score`), Hạn mức phê duyệt (`approved_amount`), Lãi suất (`interest_rate`) và Mã từ chối (`rejection_code`).
+- Trên toàn bộ **15/15 hồ sơ mẫu (`APP001`–`APP015`)** và **100/100 hồ sơ khách hàng sinh ngẫu nhiên (Property-Based Fuzzing bao phủ các điểm biên nhạy cảm)**, cả 3 bộ máy **Drools**, **CLIPS** và **Prolog** đều hội tụ **khớp 100% (`115/115` trường hợp)** về Quyết định (`decision`), Hạng rủi ro (`risk_tier`), Điểm tổng hợp (`composite_score`), Hạn mức phê duyệt (`approved_amount`), Lãi suất (`interest_rate`) và Mã từ chối (`rejection_code`).
 
 ---
 
@@ -584,7 +584,7 @@ Bên cạnh đó, mô-đun **`BackwardGoalSeeker`** bổ sung khả năng **Truy
 
 ### 4.7. Mô hình Định lượng Rủi ro Tín dụng Basel III (`PD`, `LGD`, `EAD`, `EL`, `RAROC`) & Stress-Testing Danh mục
 
-Trong phiên bản **V3 Ultimate**, kết quả suy diễn của Drools được kết nối trực tiếp với mô hình định lượng rủi ro tín dụng theo chuẩn ngân hàng quốc tế **Basel III**:
+Trong phiên bản **phiên bản hiện tại**, kết quả suy diễn của Drools được kết nối trực tiếp với mô hình định lượng rủi ro tín dụng theo chuẩn ngân hàng quốc tế **Basel III**:
 1. **`pd_percent` (Probability of Default – Xác suất vỡ nợ 12 tháng):** Ánh xạ đơn điệu giảm dần theo `risk_tier` và `composite_score` (từ `0.55%` với khách hàng VIP `TIER_A` 100 điểm đến `38.0%` với hồ sơ nợ xấu `TIER_D`).
 2. **`lgd_percent` (Loss Given Default – Tỷ lệ tổn thất khi vỡ nợ):** Nội suy theo tỷ lệ bao phủ tài sản đảm bảo (`collateral_value / loan_amount`), từ mức sàn `10.0%` (khi TSĐB $\ge 150\%$) đến chuẩn `45.0%` đối với khoản vay tín chấp không có TSĐB.
 3. **`ead_amount` (Exposure at Default) & `expected_loss` (Tổn thất dự kiến):**
@@ -594,7 +594,7 @@ Trong phiên bản **V3 Ultimate**, kết quả suy diễn của Drools được
 
 ---
 
-### 4.8. Kết quả Kiểm thử Tự động Toàn diện (`28/28 Unit, Security, Basel III & Fuzzing Tests PASS 100%`)
+### 4.8. Kết quả Kết quả Kiểm thử Tự động (`28/28 Unit, Security, Basel III & Fuzzing Tests PASS 100%`)
 
 Bộ kiểm thử tự động trong `tests/test_drools_engine.py` được thực thi bằng lệnh `python3 -m unittest discover -s tests -v`, đạt **28/28 test cases PASS 100%**:
 - `test_01` – `test_06`: Kiểm tra `DRLParser`, `DecisionTableLoader`, `RetePhreakNetwork & AlphaNode Sharing`, `Conflict Resolution (salience & activation-group)`, `no-loop & lock-on-active`, và `Truth Maintenance System (insertLogical & Auto-Retract)`. (**PASS**)
@@ -612,8 +612,8 @@ Bộ kiểm thử tự động trong `tests/test_drools_engine.py` được th�
 
 1. **Ưu điểm đạt được:**
    - Mô phỏng chính xác kiến trúc lõi của Drools (`DRLParser`, `KieBase`, `KieSession`, `RetePhreakNetwork` có `Incremental Alpha Cache`, `SafeASTEvaluator`, `Agenda`, `ConflictResolver`, `TMS insertLogical`, `DecisionTableLoader`) ngay trên Python chuẩn, giúp trực quan hóa hộp trắng toàn bộ trạng thái bên trong của từng nút suy diễn.
-   - Kết hợp nhuần nhuyễn suy diễn luật nghiệp vụ với định lượng rủi ro chuẩn ngân hàng **Basel III (`PD`, `LGD`, `EAD`, `EL`, `RAROC`)** và **Macro Stress-Testing (`Risk Migration Matrix`)**.
-   - Đảm bảo chất lượng phần mềm mức cao nhất với `Formal Rule V&V (5/5)` và `28/28 Unit & Fuzzing Tests PASS 100%`.
+   - Kết hợp suy diễn luật nghiệp vụ với định lượng rủi ro chuẩn ngân hàng **Basel III (`PD`, `LGD`, `EAD`, `EL`, `RAROC`)** và **Macro Stress-Testing (`Risk Migration Matrix`)**.
+   - Kiểm tra hệ thống bằng `Formal Rule V&V (5/5)` và `28/28 Unit & Fuzzing Tests PASS 100%`.
 2. **Hạn chế:**
    - Các trọng số cộng/trừ điểm và hàm ánh xạ `PD` hiện được hiệu chỉnh theo quy tắc chuyên gia (Expert-calibrated), chưa tự động ước lượng từ dữ liệu lịch sử vỡ nợ quy mô hàng triệu bản ghi.
 3. **Hướng phát triển:**

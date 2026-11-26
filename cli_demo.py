@@ -1,14 +1,7 @@
 """
-cli_demo.py
-===============================================================================
-CHAY DEMO TRUC TIEP TREN TERMINAL (COMMAND-LINE INTERFACE)
-He thong Ho tro Ra quyet dinh (DSS) - Nhom 1 - De 08: DROOLS Rule Engine
--------------------------------------------------------------------------------
-Dung khi giang vien yeu cau chay thu luong suy dien Rete / PHREAK, Agenda
-Conflict Resolution, TMS (insertLogical), Kiem dinh V&V va Doi sanh 3 cong cu
-(Drools vs CLIPS vs Prolog) ngay tren man hinh Terminal khong qua giao dien Web:
+cli_demo.py - chạy thử hệ thống trên terminal (không cần mở web).
+
     python cli_demo.py
-===============================================================================
 """
 
 from __future__ import annotations
@@ -38,6 +31,10 @@ DT_CSV_PATH = os.path.join(BASE_DIR, "rules", "decision_table_rules.csv")
 SAMPLE_CSV_PATH = os.path.join(BASE_DIR, "data", "sample_applicants.csv")
 
 
+def section(title: str) -> None:
+    print(f"\n--- {title} ---")
+
+
 def run_cli_walkthrough() -> None:
     dss = CreditApprovalDSS(
         drl_path=DRL_PATH,
@@ -48,108 +45,91 @@ def run_cli_walkthrough() -> None:
     comparator = MultiParadigmComparator(dss, CLIPS_PATH, PROLOG_PATH)
     goal_seeker = BackwardGoalSeeker(dss)
 
-    print("=" * 88)
-    print("  DEMO TERMINAL: HỆ THỐNG HỖ TRỢ RA QUYẾT ĐỊNH (DSS) – NHÓM 1 – ĐỀ 08: DROOLS ENGINE")
-    print("  Bài toán: Thẩm định Tín dụng, Xếp hạng Rủi ro & Định giá Khoản vay Cá nhân")
-    print("=" * 88)
+    print("Thẩm định tín dụng bằng Drools - Nhóm 1 - Đề 08")
 
-    # 1. Thong ke KieBase & RetePhreakNetwork
+    # 1. Tập luật và mạng Rete
     first_eval = dss.evaluate_applicant(dss.get_preset_scenarios()[0])
     rstats = first_eval["engine"]["rete_network"]["stats"]
-    print("\n[1] KIẾN TRÚC KIEBASE & MẠNG SUY DIỄN RETE / PHREAK:")
-    print(f"    - Package DRL          : {dss.kie_base.package_name}")
-    print(f"    - Tổng số luật nạp     : {len(dss.kie_base.rules)} luật (20 luật .drl + 3 luật Decision Table .csv)")
-    print(f"    - ObjectTypeNodes (OTN): {rstats['total_object_type_nodes']} nút (Applicant, EligibilityPassed)")
+    section("1. Tập luật và mạng Rete")
+    print(f"Package: {dss.kie_base.package_name}")
+    print(f"Số luật: {len(dss.kie_base.rules)} (20 trong .drl, 3 trong bảng quyết định .csv)")
+    print(f"ObjectTypeNode: {rstats['total_object_type_nodes']}")
     print(
-        f"    - AlphaNode Sharing    : Gom {rstats['total_raw_alpha_constraints']} điều kiện đơn -> "
-        f"{rstats['unique_alpha_nodes']} AlphaNode duy nhất (Tiết kiệm {rstats['alpha_nodes_saved_by_sharing']} phép lọc)"
+        f"AlphaNode: {rstats['total_raw_alpha_constraints']} điều kiện gộp còn {rstats['unique_alpha_nodes']} nút "
+        f"(dùng chung {rstats['alpha_nodes_saved_by_sharing']})"
     )
-    print(
-        f"    - Alpha Memory Cache   : {rstats['cache_hits']} Cache Hits ({rstats['cache_hit_rate_percent']}%) "
-        f"theo (handle_id, fact.recency) + SafeASTEvaluator Sandbox"
-    )
-    print(f"    - BetaNode 2-Fact Joins: {rstats['multi_fact_beta_joins']}/{rstats['total_beta_nodes']} nút kết hợp (EligibilityPassed ⋈ Applicant)")
+    print(f"Cache AlphaNode: {rstats['cache_hits']} lần trúng ({rstats['cache_hit_rate_percent']}%)")
+    print(f"BetaNode join 2 fact: {rstats['multi_fact_beta_joins']}/{rstats['total_beta_nodes']}")
 
-    # 2. Kiem dinh hinh thuc tap luat (Formal Rule Base V&V)
+    # 2. Kiểm tra tập luật
     vv = verifier.verify_all()
-    print(f"\n[2] KIỂM ĐỊNH HÌNH THỨC CƠ SỞ TRI THỨC (FORMAL RULE BASE V&V): {vv['overall_status']}")
+    section("2. Kiểm tra tập luật (V&V)")
     for chk in vv["checks"]:
-        status_icon = "PASS" if chk["passed"] else "FAIL"
-        print(f"    - [{status_icon}] {chk['check_id']} ({chk['title']}): {chk['status_badge']}")
+        print(f"[{'đạt' if chk['passed'] else 'lỗi'}] {chk['title']}")
 
-    # 3. Chay 6 Kich ban Demo Dien hinh kem Basel III
-    print("\n[3] KẾT QUẢ SUY DIỄN TIẾN 4 TẦNG & ĐỊNH LƯỢNG BASEL III TRÊN 6 KỊCH BẢN ĐIỂN HÌNH:")
-    print("-" * 108)
-    print(
-        f"{'Mã HS':<7} | {'Họ và Tên':<17} | {'Điểm':<6} | {'Hạng':<6} | {'Quyết định':<20} | "
-        f"{'EAD':<8} | {'PD':<6} | {'EL':<7} | {'RAROC':<7} | {'Chuỗi Luật'}"
-    )
-    print("-" * 108)
+    # 3. Sáu hồ sơ mẫu
+    section("3. Kết quả 6 hồ sơ mẫu")
+    header = f"{'Mã':<7} {'Họ tên':<17} {'Điểm':>4} {'Hạng':<6} {'Quyết định':<20} {'Hạn mức':>8} {'PD%':>6} {'EL':>6} {'RAROC%':>7}  Luật"
+    print(header)
     for preset in dss.get_preset_scenarios():
         res = dss.evaluate_applicant(preset)
         app = res["applicant"]
         s = res["summary"]
-        rules_str = "->".join(res["engine"]["fired_rules"])
         print(
-            f"{app['applicant_id']:<7} | {app['full_name']:<17} | "
-            f"{s['composite_score']:>3}/100 | {s['risk_tier']:<6} | "
-            f"{s['decision']:<20} | {s['ead_amount']:>5.1f}tr | "
-            f"{s['pd_percent']:>5.2f}% | {s['expected_loss']:>5.2f}tr | "
-            f"{s['raroc_percent']:>5.1f}% | {rules_str}"
+            f"{app['applicant_id']:<7} {app['full_name']:<17} {s['composite_score']:>4} {s['risk_tier']:<6} "
+            f"{s['decision']:<20} {s['ead_amount']:>8.1f} {s['pd_percent']:>6.2f} {s['expected_loss']:>6.2f} "
+            f"{s['raroc_percent']:>7.1f}  {' '.join(res['engine']['fired_rules'])}"
         )
-    print("-" * 108)
+    print("(Hạn mức và EL tính bằng triệu đồng)")
 
-    # 4. Minh hoa Truth Maintenance System (insertLogical & Auto-Retract)
-    print("\n[4] KIỂM CHỨNG HỆ THỐNG BẢO TOÀN CHÂN LÝ (TRUTH MAINTENANCE SYSTEM - insertLogical):")
+    # 4. TMS
+    section("4. TMS (insertLogical)")
     kb = KieBase(drl_text=dss.active_drl_text)
     session = kb.new_kie_session()
     fact = dss.build_applicant_fact(dss.get_preset_scenarios()[0])
     handle = session.insert(fact)
     session.fire_all_rules(agenda_pipeline=["1-eligibility"])
     wm1 = [h.fact_type for h in session.handles.values()]
-    print(f"    - Bước 1 (Hồ sơ hợp lệ -> R04 gọi insertLogical): Working Memory = {wm1}")
+    print(f"Sau tầng 1: {wm1}")
     session.modify(handle, cic_bad_debt=True)
     wm2 = [h.fact_type for h in session.handles.values()]
-    print(f"    - Bước 2 (Gọi modify(cic_bad_debt=True))       : Working Memory = {wm2}")
-    for ev in session.listener.tms_events:
-        print(f"      * TMS Event [{ev['action']}]: {ev['fact_type']} - {ev['reason']}")
+    print(f"Sau khi đặt cic_bad_debt=True: {wm2}")
+    print("-> EligibilityPassed tự bị rút lại vì điều kiện của R04 không còn đúng.")
 
-    # 5. Doi sanh 3 cong cu Drools (.drl) vs CLIPS (.clp) vs Prolog (.pl) tren 15 ho so
-    print("\n[5] ĐỐI SÁNH THỰC NGHIỆM 3 CÔNG CỤ RULE-BASED (DROOLS vs CLIPS vs PROLOG) TRÊN 15 HỒ SƠ:")
+    # 5. So sánh với CLIPS và Prolog
+    section("5. So sánh Drools / CLIPS / Prolog")
     all_apps = dss.load_sample_applicants()
-    matched = 0
-    for app_item in all_apps:
-        cmp_res = comparator.compare_on_applicant(app_item)
-        if cmp_res["consensus_verified"]:
-            matched += 1
-    print(f"    - Tỷ lệ đồng thuận quyết định giữa Drools (.drl), CLIPS (.clp) và Prolog (.pl): {matched}/{len(all_apps)} hồ sơ (100% EQUIVALENCE)")
+    matched = sum(1 for a in all_apps if comparator.compare_on_applicant(a)["consensus_verified"])
+    print(f"Khớp {matched}/{len(all_apps)} hồ sơ")
 
-    # 6. Truy van Muc tieu Nguoc (Backward Chaining Goal-Seeker)
+    # 6. Suy diễn ngược
     preset3 = dss.get_preset_scenarios()[2]
     gs = goal_seeker.seek_goal(preset3, "APPROVED_100")
-    print(f"\n[6] SUY DIỄN NGƯỢC TÌM MỤC TIÊU (BACKWARD GOAL-SEEKER) CHO HỒ SƠ {preset3['applicant_id']} ({gs['current_decision']}):")
+    section(f"6. Suy diễn ngược cho {preset3['applicant_id']} (hiện tại: {gs['current_decision']})")
     for idx, plan in enumerate(gs["verified_plans"], start=1):
-        print(f"    - Phương án {idx}: {plan['plan_title']}")
-        print(f"      + Hành động : {'; '.join(plan['actions'])}")
-        print(f"      + Kiểm chứng: Đạt {plan['achieved_decision']} ({plan['achieved_tier']}, {plan['achieved_score']}/100, LS {plan['achieved_rate']}%)")
+        print(f"Cách {idx}: {'; '.join(plan['actions'])}")
+        print(f"   -> {plan['achieved_decision']}, hạng {plan['achieved_tier']}, điểm {plan['achieved_score']}, lãi suất {plan['achieved_rate']}%")
 
-    # 7. Basel III Portfolio Macro Stress-Testing & Risk Migration Matrix
+    # 7. Stress test
     stress = dss.run_portfolio_stress_test(income_shock_pct=-20.0, collateral_shock_pct=-25.0, dti_shock_pts=12.0)
     imp = stress["impact_summary"]
-    print("\n[7] MÔ PHỎNG STRESS-TEST DANH MỤC BASEL III (Cú sốc: Thu nhập -20%, TSĐB -25%, DTI +12đ%):")
+    section("7. Stress test (thu nhập -20%, TSĐB -25%, DTI +12)")
     print(
-        f"    - Tổng hạn mức duyệt : {stress['baseline_portfolio']['total_approved_amount']} tr -> "
-        f"{stress['stressed_portfolio']['total_approved_amount']} tr ({imp['approved_amount_delta']:+.1f} tr)"
+        f"Tổng hạn mức: {stress['baseline_portfolio']['total_approved_amount']} -> "
+        f"{stress['stressed_portfolio']['total_approved_amount']} triệu"
     )
     print(
-        f"    - Tổng Expected Loss : {stress['baseline_portfolio']['total_expected_loss']:.2f} tr -> "
-        f"{stress['stressed_portfolio']['total_expected_loss']:.2f} tr ({imp['expected_loss_delta']:+.2f} tr)"
+        f"Tổng EL: {stress['baseline_portfolio']['total_expected_loss']:.2f} -> "
+        f"{stress['stressed_portfolio']['total_expected_loss']:.2f} triệu"
     )
-    print(f"    - Số hồ sơ hạ bậc    : {imp['downgraded_count']}/{stress['total_applicants']} hồ sơ | Ma trận dịch chuyển: {stress['risk_migration_matrix']}")
+    print(f"Số hồ sơ bị hạ hạng: {imp['downgraded_count']}/{stress['total_applicants']}")
+    tiers = ["TIER_A", "TIER_B", "TIER_C", "TIER_D"]
+    matrix = stress["risk_migration_matrix"]
+    print("Trước \\ Sau  " + "  ".join(t[-1] for t in tiers))
+    for t in tiers:
+        print(f"     {t[-1]}       " + "  ".join(str(matrix[t][u]) for u in tiers))
 
-    print("\n" + "=" * 88)
-    print("  HOÀN TẤT DEMO CLI V3 ULTIMATE 100% THÀNH CÔNG! (Để mở Web Dashboard, chạy lệnh: python app.py)")
-    print("=" * 88)
+    print("\nXong. Chạy `python app.py` để mở giao diện web.")
 
 
 if __name__ == "__main__":

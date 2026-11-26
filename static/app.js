@@ -101,6 +101,10 @@ const AGENDA_STAGE_INFO = [
    ============================================================================ */
 document.addEventListener("DOMContentLoaded", async () => {
   await loadOverviewData();
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("demo") === "all") {
+    await runFullAutoDemoShowcase();
+  }
   if (window.lucide) {
     window.lucide.createIcons();
   }
@@ -205,6 +209,35 @@ function toggleFullPageMode() {
     runGoalSeekingQuery();
   } else {
     switchTab("dashboard");
+  }
+}
+
+async function runFullAutoDemoShowcase() {
+  const btn = document.getElementById("btnRunAllDemo");
+  if (btn) {
+    btn.textContent = "⏳ Đang chạy đồng loạt 5 Phân hệ...";
+    btn.disabled = true;
+  }
+  STATE.fullPageMode = true;
+  const tabs = ["dashboard", "whatif", "batch", "studio", "paradigms"];
+  tabs.forEach((t) => {
+    const tabBtn = document.getElementById(`tabBtn-${t}`);
+    const panel = document.getElementById(`tabPanel-${t}`);
+    if (tabBtn) tabBtn.classList.add("active");
+    if (panel) panel.classList.remove("hidden");
+  });
+
+  await Promise.allSettled([
+    runWhatIfSimulation(),
+    loadBatchEvaluation(),
+    runPortfolioStressTest(),
+    runMultiParadigmComparison(),
+    runGoalSeekingQuery(),
+  ]);
+
+  if (btn) {
+    btn.textContent = "✅ Đang mở Tất cả 5 Phân hệ (All-in-One)";
+    btn.disabled = false;
   }
 }
 
